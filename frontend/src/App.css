@@ -1,0 +1,1238 @@
+/* ========================================================================
+   WealthWise — Financial Freedom Tracker UI (Monochrome)
+   ======================================================================== */
+
+/* ── Reset & Base ────────────────────────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  line-height: 1.5;
+}
+
+/* ── App Layout ──────────────────────────────────────────────────────── */
+
+.app {
+  min-height: 100vh;
+  max-width: 1350px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.main-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.main-layout .portfolio-card {
+  flex: 1;
+  min-width: 0; /* prevent flex overflow */
+}
+
+/* ── Portfolio Card ──────────────────────────────────────────────────── */
+
+.portfolio-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 2rem;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+
+.portfolio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.btn-settings {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  padding: 0.25rem;
+}
+
+.btn-settings:hover {
+  opacity: 0.8;
+}
+
+.header-icon {
+  font-size: 1rem;
+  opacity: 0.6;
+}
+
+.portfolio-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+}
+
+/* ── Ticker Entry Row ────────────────────────────────────────────────── */
+
+.ticker-entry-wrapper {
+  position: relative;
+  margin-bottom: 1.5rem;
+  z-index: 10;
+}
+
+.ticker-entry-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.ticker-input-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.ticker-search-input {
+  width: 100%;
+  padding: 0.7rem 1rem 0.7rem 2.4rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ticker-search-input:focus {
+  border-color: #1a1a1a;
+}
+
+.ticker-search-input::placeholder {
+  color: #aaa;
+}
+
+.shares-input {
+  width: 110px;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  text-align: right;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.shares-input:focus {
+  border-color: #1a1a1a;
+}
+
+.shares-input::placeholder {
+  color: #aaa;
+}
+
+.shares-input:disabled {
+  background: #f9f9f9;
+  color: #bbb;
+}
+
+.btn-add-ticker {
+  width: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 300;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-add-ticker:hover:not(:disabled) {
+  background: #333;
+}
+
+.btn-add-ticker:disabled {
+  background: #e0e0e0;
+  color: #bbb;
+  cursor: not-allowed;
+}
+
+/* ── Autocomplete Dropdown ───────────────────────────────────────────── */
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  z-index: 20;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f7f7f7;
+}
+
+.dropdown-item.loading-state,
+.dropdown-item.no-results {
+  color: #999;
+  font-size: 0.9rem;
+  cursor: default;
+}
+
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.result-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.result-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-subtitle {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+/* ── Entry Divider (or import CSV) ───────────────────────────────────── */
+
+.entry-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: #e0e0e0;
+}
+
+.divider-text {
+  font-size: 0.78rem;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.btn-import-csv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.65rem;
+  background: none;
+  border: 1.5px dashed #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  margin-bottom: 1.25rem;
+}
+
+.btn-import-csv .btn-icon {
+  font-size: 0.9rem;
+}
+
+.btn-import-csv:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+/* ── Portfolio Table ─────────────────────────────────────────────────── */
+
+.portfolio-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.portfolio-table thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1.5px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.portfolio-table thead th.num-col {
+  text-align: right;
+}
+
+.portfolio-table thead th.action-col {
+  width: 44px;
+  text-align: center;
+}
+
+.portfolio-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.portfolio-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.portfolio-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.portfolio-table tbody td {
+  padding: 0.7rem 0.75rem;
+  vertical-align: middle;
+}
+
+.ticker-col {
+  font-weight: 600;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: #1a1a1a;
+}
+
+.name-col {
+  color: #333;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portfolio-table tbody td.num-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #2a2a2a;
+}
+
+.portfolio-table tbody td.num-col.positive {
+  color: #059669;
+}
+
+.portfolio-table tbody td.num-col.negative {
+  color: #dc2626;
+}
+
+.action-col {
+  text-align: center;
+}
+
+.btn-delete-row {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+  padding: 0.2rem;
+}
+
+.btn-delete-row:hover {
+  opacity: 0.8;
+}
+
+/* ── Table Status / Empty ────────────────────────────────────────────── */
+
+.table-status {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #999;
+  font-size: 0.9rem;
+  border: 1.5px dashed #d4d4d4;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Bottom Action Bar ───────────────────────────────────────────────── */
+
+.action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.action-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-import {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  background: #fff;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-import:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+}
+
+.btn-icon {
+  font-size: 0.9rem;
+}
+
+.currency-select {
+  padding: 0.6rem 1rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.currency-select:focus {
+  border-color: #1a1a1a;
+}
+
+.btn-analyze {
+  padding: 0.6rem 1.5rem;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-analyze:hover:not(:disabled) {
+  background: #333;
+}
+
+.btn-analyze:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Summary Strip ────────────────────────────────────────────────────── */
+
+.summary-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.summary-label {
+  font-size: 0.7rem;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summary-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-item.positive .summary-value {
+  color: #059669;
+}
+
+.summary-item.negative .summary-value {
+  color: #dc2626;
+}
+
+/* ── Allocation Section ────────────────────────────────────────────────── */
+
+.allocation-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* Tabs */
+.alloc-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1.5px solid #e0e0e0;
+  margin-bottom: 1.25rem;
+}
+
+.alloc-tab {
+  padding: 0.6rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: -1.5px;
+  font-family: inherit;
+}
+
+.alloc-tab:hover {
+  color: #555;
+}
+
+.alloc-tab.active {
+  color: #1a1a1a;
+  font-weight: 600;
+  border-bottom-color: #1a1a1a;
+}
+
+/* Content area */
+.alloc-content {
+  min-height: 100px;
+}
+
+.alloc-status {
+  text-align: center;
+  padding: 2rem;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.alloc-status.error {
+  color: #dc2626;
+}
+
+/* ── Donut Chart ──────────────────────────────────────────────────────── */
+
+.allocation-donut {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 1rem 0;
+}
+
+/* ── Allocation Table ─────────────────────────────────────────────────── */
+
+.allocation-table-wrap {
+  margin-bottom: 1rem;
+}
+
+.allocation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.allocation-table thead th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #999;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1.5px solid #e0e0e0;
+}
+
+.allocation-table thead th.num-col {
+  text-align: right;
+}
+
+.allocation-table tbody td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+}
+
+.allocation-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.allocation-table tbody td.num-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.allocation-table tbody td.num-col.bold {
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.row-concentrated td {
+  background: #f7f7f7;
+  font-weight: 600;
+}
+
+.dot-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+/* ── Hook Insight Card ────────────────────────────────────────────────── */
+
+.hook-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  margin-top: 0.5rem;
+}
+
+.hook-body {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.hook-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.hook-text {
+  font-size: 0.84rem;
+  color: #555;
+  line-height: 1.4;
+}
+
+.hook-ask-btn {
+  flex-shrink: 0;
+  padding: 0.4rem 1rem;
+  background: none;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.hook-ask-btn:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+}
+
+/* ── Settings Modal ────────────────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+  padding: 1.5rem 1.75rem;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.modal-header h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0.4;
+  padding: 0.25rem;
+}
+
+.modal-close:hover {
+  opacity: 0.8;
+}
+
+/* Modal tabs */
+.modal-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1.5px solid #e0e0e0;
+  margin-bottom: 1.25rem;
+}
+
+.modal-tab {
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  margin-bottom: -1.5px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.modal-tab:hover {
+  color: #555;
+}
+
+.modal-tab.active {
+  color: #1a1a1a;
+  font-weight: 600;
+  border-bottom-color: #1a1a1a;
+}
+
+.modal-status {
+  text-align: center;
+  padding: 1.5rem;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* Modal form */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.form-input {
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus {
+  border-color: #1a1a1a;
+}
+
+.form-message {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.form-message.success {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.form-message.error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.btn-save-profile {
+  padding: 0.6rem 1.5rem;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 0.5rem;
+  transition: background 0.15s;
+}
+
+.btn-save-profile:hover:not(:disabled) {
+  background: #333;
+}
+
+.btn-save-profile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  padding: 0.6rem 1.5rem;
+  background: none;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.btn-cancel:hover {
+  border-color: #1a1a1a;
+}
+
+/* Accounts tab */
+.modal-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.account-provider {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+}
+
+.account-type {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.account-cash {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.btn-remove-account {
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+  opacity: 0.3;
+  padding: 0.25rem;
+  transition: opacity 0.15s;
+}
+
+.btn-remove-account:hover {
+  opacity: 0.8;
+}
+
+.btn-add-account {
+  padding: 0.65rem;
+  background: none;
+  border: 2px dashed #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: #999;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.btn-add-account:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+}
+
+.new-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.new-account-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ── Profile Panel (sidebar) ──────────────────────────────────────────── */
+
+.profile-panel {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel-loading {
+  font-size: 0.85rem;
+  color: #999;
+  padding: 1rem;
+  text-align: center;
+}
+
+.panel-section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 1.25rem;
+}
+
+.panel-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+  margin-bottom: 0.85rem;
+}
+
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  color: #888;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.panel-empty {
+  font-size: 0.82rem;
+  color: #bbb;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.panel-account-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+}
+
+.panel-account-item:last-child {
+  border-bottom: none;
+}
+
+.pa-provider {
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.pa-type {
+  font-size: 0.75rem;
+  color: #999;
+  background: #f0f0f0;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* ── Profile CTA ──────────────────────────────────────────────────────── */
+
+.panel-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+  text-align: center;
+}
+
+.cta-text {
+  font-size: 0.82rem;
+  color: #888;
+  line-height: 1.5;
+}
+
+.cta-btn {
+  padding: 0.5rem 1rem;
+  background: none;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.cta-btn:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+.cta-btn-secondary {
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  font-size: 0.82rem;
+  color: #999;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+
+.cta-btn-secondary:hover {
+  color: #1a1a1a;
+}
+
+/* ── Inline editing ──────────────────────────────────────────────────── */
+
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.panel-title-row .panel-title {
+  margin-bottom: 0;
+}
+
+.panel-edit-btn {
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0.35;
+  padding: 0.15rem;
+  transition: opacity 0.15s;
+}
+
+.panel-edit-btn:hover {
+  opacity: 0.8;
+}
+
+.detail-edit {
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.detail-edit:focus {
+  border-color: #1a1a1a;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.new-acct-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pa-delete {
+  background: none;
+  border: none;
+  font-size: 0.7rem;
+  cursor: pointer;
+  opacity: 0.25;
+  padding: 0.15rem;
+  transition: opacity 0.15s;
+}
+
+.pa-delete:hover {
+  opacity: 0.7;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  .profile-panel {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .profile-panel .panel-section {
+    flex: 1;
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 1rem;
+  }
+  .portfolio-card {
+    padding: 1.25rem;
+  }
+  .ticker-entry-row {
+    flex-wrap: wrap;
+  }
+  .ticker-input-wrap {
+    flex: 1 1 100%;
+  }
+  .shares-input {
+    flex: 1;
+  }
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .action-bar-right {
+    justify-content: stretch;
+  }
+  .btn-analyze {
+    flex: 1;
+  }
+}

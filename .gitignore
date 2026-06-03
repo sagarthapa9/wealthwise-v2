@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+
+# Docker
+.dockerignore
+
+# IDE
+.idea/
+.vscode/
+*.swo
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

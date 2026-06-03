@@ -1,0 +1,23 @@
+[project]
+name = "wealthwise-backend"
+version = "0.1.0"
+description = "WealthWise - AI-powered investment analysis backend"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "sqlalchemy>=2.0.0",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-multipart>=0.0.18",
+    "pandas>=2.0.0",
+    "fpdf2>=2.8.0",
+    "yfinance>=1.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pypdf>=6.12.2",
+]
