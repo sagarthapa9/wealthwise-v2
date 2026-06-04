@@ -8,6 +8,11 @@ WealthWise v2 is a rewrite of the original Streamlit app into a modern full-stac
 
 **Stack:** FastAPI (Python) + PostgreSQL + React/Vite + Docker Compose + uv
 
+**Key docs (read these for full context):**
+- `docs/chatbot-migration-analysis.md` — Why context-injection over ReAct loop, context data gap analysis, architecture evolution plan
+- `docs/agentic-ai-architecture.md` — ReAct pattern, memory augmentation (working/episodic/semantic), production-grade patterns
+- `docs/deployment-guide.md` — VPS + Cloud Run deploy, CI/CD pipeline, monitoring
+
 ## Essential commands
 
 ```bash
@@ -34,36 +39,30 @@ cd backend && uv run alembic upgrade head
 
 ```
 wealthwise-v2/
-├── docker-compose.yml       # 3 services: api, db, frontend
-├── .env                     # Database credentials, config
+├── docker-compose.yml
+├── .env
+├── docs/                    # architecture, deployment, migration analysis
 ├── backend/
-│   ├── pyproject.toml       # uv-managed Python project
+│   ├── pyproject.toml
 │   ├── Dockerfile
 │   ├── app/
-│   │   ├── main.py          # FastAPI entry point
-│   │   ├── api/v1/
-│   │   │   ├── health.py     # Health check endpoint
-│   │   │   ├── ticker.py     # GET /ticker/{symbol} — yfinance lookup
-│   │   │   ├── portfolio.py  # Holdings CRUD + summary
-│   │   │   └── router.py     # Route registration
-│   │   ├── models/
-│   │   │   └── holding.py    # Holding ORM model
-│   │   ├── schemas/
-│   │   │   └── holding.py    # Pydantic schemas
-│   │   ├── services/         # Migrated business logic (health scores, etc.)
-│   │   ├── db/
-│   │   │   └── database.py   # Async engine + session + Base
-│   │   └── core/             # App settings
-│   └── alembic/              # Database migrations
+│   │   ├── main.py
+│   │   ├── api/v1/          # health, ticker, portfolio, profile, accounts, allocations, router
+│   │   ├── models/          # holding, profile, account (SQLAlchemy ORM)
+│   │   ├── schemas/         # holding, profile, account (Pydantic v2)
+│   │   ├── services/        # portfolio_data, portfolio_calc, health_score, insight_engine,
+│   │   │                    # prompt_builder, hook_templates, export_report
+│   │   ├── db/database.py   # async engine + session
+│   │   └── core/config.py   # pydantic-settings
+│   └── alembic/
 ├── frontend/
-│   ├── package.json
-│   ├── vite.config.js
+│   ├── vite.config.js       # proxy /api → backend:8000
 │   └── src/
-│       ├── App.jsx           # Portfolio builder layout
-│       ├── App.css           # Table + summary styles
-│       └── components/
-│           ├── TickerSearch.jsx     # Search + autocomplete dropdown
-│           └── PortfolioTable.jsx   # Holdings display table ── unused
+│       ├── App.jsx
+│       ├── App.css
+│       └── components/      # TickerSearch, PortfolioTable, AllocationSection,
+│                             # AllocationDonut, AllocationTable, HookInsightCard,
+│                             # ProfilePanel, SettingsModal
 ```
 
 ## Architecture decisions
@@ -132,19 +131,31 @@ Place these into `backend/app/services/`:
 ## Current build status
 
 - Phase 1 (Scaffolding): ✅ Complete — FastAPI + React + Docker Compose working
-- Phase 2a (Manual Portfolio Builder): ✅ Complete — DB, API, React UI built
-- Phase 2b (CSV/PDF Parser): 📅 Not yet started
-- Phase 3+ (Health scores, insights, chat): 📅 Planned
+- Phase 2a (Manual Portfolio Builder): ✅ Complete — holdings CRUD, ticker search, summary
+- Phase 2b (Profile + Accounts): ✅ Complete — profile CRUD, accounts CRUD, inline editing, settings modal
+- Phase 2c (Allocations + Health + Insights): ✅ Complete — asset/sector/geo breakdowns, health scores, 7 insight detectors, donut charts
+- Phase 3 (LLM Analysis Engine): 📅 Planned — [see migration analysis](docs/chatbot-migration-analysis.md)
+  - Prerequisite: enrich holding data from yfinance (type, asset_class, sector, OCF, etc.)
+  - Phase 3a: context builder + system prompt + guardrails + chat endpoint
+  - Phase 3b: React ChatPanel + wire HookInsightCard "Ask AI" buttons
+  - Phase 3c (later): ReAct loop (when needed — see decision triggers in migration analysis)
 
 ### Current API endpoints
 - `GET /api/health` — health check
-- `GET /api/v1/health` — v1 health check
+- `GET /api/v1/health` — v1 health check (DB ping)
 - `GET /api/v1/ticker/{symbol}` — yfinance ticker lookup
 - `POST /api/v1/portfolio/holdings` — create holding
 - `GET /api/v1/portfolio/holdings` — list holdings
 - `PUT /api/v1/portfolio/holdings/{id}` — update holding
 - `DELETE /api/v1/portfolio/holdings/{id}` — delete holding
 - `GET /api/v1/portfolio/summary` — portfolio totals
+- `GET /api/v1/profile` — get profile (auto-creates defaults)
+- `PUT /api/v1/profile` — create/update profile
+- `GET /api/v1/accounts` — list accounts
+- `POST /api/v1/accounts` — create account
+- `PUT /api/v1/accounts/{id}` — update account
+- `DELETE /api/v1/accounts/{id}` — delete account
+- `GET /api/v1/portfolio/allocations?tab=` — asset/sector/geo breakdowns + insight hook
 
 ## Memory Management Rules — Always Follow
 
