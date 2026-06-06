@@ -35,6 +35,15 @@ def _holding_to_response(h: Holding) -> HoldingResponse:
         cost_basis_per_share=h.cost_basis_per_share,
         current_price=h.current_price,
         account_id=h.account_id,
+        # Classification and financial metadata
+        type=h.type,
+        asset_class=h.asset_class,
+        sector=h.sector,
+        geography=h.geography,
+        currency=h.currency,
+        ocf_pct=h.ocf_pct,
+        dividend_yield_pct=h.dividend_yield_pct,
+        isin=h.isin,
         created_at=h.created_at,
         updated_at=h.updated_at,
         total_cost=round(total_cost, 2),
@@ -57,6 +66,15 @@ async def create_holding(data: HoldingCreate, db: AsyncSession = Depends(get_db)
         cost_basis_per_share=data.cost_basis_per_share,
         current_price=data.current_price,
         account_id=data.account_id,
+        # Store classification and financial metadata (auto-populated from ticker lookup)
+        type=data.type,
+        asset_class=data.asset_class,
+        sector=data.sector,
+        geography=data.geography,
+        currency=data.currency,
+        ocf_pct=data.ocf_pct,
+        dividend_yield_pct=data.dividend_yield_pct,
+        isin=data.isin,
     )
     db.add(holding)
     await db.commit()

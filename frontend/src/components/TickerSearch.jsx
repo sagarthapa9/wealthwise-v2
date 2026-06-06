@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 
 /**
- * TickerSearch — search input with autocomplete dropdown + shares field.
+ * TickerSearch — search input with autocomplete dropdown + shares + purchase price.
  *
  * Flow:
- *   User types ticker → autocomplete shows matching results
- *   User clicks result → fills name and price
- *   User enters shares → clicks "+" to add
+ *   User types ticker → autocomplete shows matching results (with classification data)
+ *   User clicks result → fills name, price, and metadata
+ *   User enters shares + optional purchase price → clicks "+" to add
  */
 function TickerSearch({ onAdd }) {
   const [query, setQuery] = useState('');
   const [shares, setShares] = useState('');
+  const [purchasePrice, setPurchasePrice] = useState('');
   const [results, setResults] = useState(null);   // null = no search yet
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
@@ -38,6 +39,7 @@ function TickerSearch({ onAdd }) {
     const q = val.trim().toUpperCase();
     setQuery(val);
     setSelectedResult(null);
+    setPurchasePrice('');
 
     if (!q) {
       setResults(null);
@@ -52,12 +54,19 @@ function TickerSearch({ onAdd }) {
       const res = await fetch(`/api/v1/ticker/${q}`);
       if (res.ok) {
         const data = await res.json();
-        // Show as a single result (yfinance lookup is exact-match)
+        // Store the full ticker response including classification fields
         setResults([{
           ticker: data.ticker,
           name: data.name,
           price: data.price,
           currency: data.currency,
+          type: data.type,
+          asset_class: data.asset_class,
+          sector: data.sector,
+          geography: data.geography,
+          ocf_pct: data.ocf_pct,
+          dividend_yield_pct: data.dividend_yield_pct,
+          isin: data.isin,
         }]);
       } else {
         setResults([]);
@@ -74,6 +83,10 @@ function TickerSearch({ onAdd }) {
     setSelectedResult(r);
     setQuery(r.ticker);
     setShowDropdown(false);
+    // Pre-fill purchase price with current price (user can override)
+    if (r.price > 0) {
+      setPurchasePrice(String(r.price));
+    }
     // Focus shares field
     setTimeout(() => {
       const sharesInput = document.querySelector('.shares-input');
@@ -88,15 +101,26 @@ function TickerSearch({ onAdd }) {
       alert('Please enter a valid number of shares.');
       return;
     }
-    onAdd(
-      selectedResult.ticker,
-      selectedResult.name,
-      selectedResult.price,
-      parseFloat(shares),
-    );
+    const pp = purchasePrice ? parseFloat(purchasePrice) : selectedResult.price;
+    onAdd({
+      ticker: selectedResult.ticker,
+      name: selectedResult.name,
+      current_price: selectedResult.price,
+      cost_basis_per_share: pp,
+      quantity: parseFloat(shares),
+      type: selectedResult.type,
+      asset_class: selectedResult.asset_class,
+      sector: selectedResult.sector,
+      geography: selectedResult.geography,
+      currency: selectedResult.currency,
+      ocf_pct: selectedResult.ocf_pct,
+      dividend_yield_pct: selectedResult.dividend_yield_pct,
+      isin: selectedResult.isin,
+    });
     // Reset form
     setQuery('');
     setShares('');
+    setPurchasePrice('');
     setSelectedResult(null);
     setResults(null);
     setShowDropdown(false);
@@ -145,6 +169,19 @@ function TickerSearch({ onAdd }) {
           disabled={!selectedResult}
         />
 
+        {/* Purchase Price input — separate from live price */}
+        <input
+          className="purchase-price-input"
+          type="number"
+          step="any"
+          value={purchasePrice}
+          onChange={(e) => setPurchasePrice(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Price you paid"
+          disabled={!selectedResult}
+          title="Leave blank to use current market price as cost basis"
+        />
+
         {/* Add button */}
         <button
           className="btn-add-ticker"
@@ -182,11 +219,12 @@ function TickerSearch({ onAdd }) {
               className="dropdown-item"
               onClick={() => selectResult(r)}
             >
-              <span className="result-badge">ETF</span>
+              <span className="result-badge">{r.type || 'ETF'}</span>
               <div className="result-details">
                 <span className="result-name">{r.name}</span>
                 <span className="result-subtitle">
                   {r.ticker} · {r.currency === 'GBP' ? 'LSE' : 'NYSE'}
+                  {r.ocf_pct ? ` · ${r.ocf_pct}% OCF` : ''}
                 </span>
               </div>
             </div>

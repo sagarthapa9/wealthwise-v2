@@ -51,7 +51,8 @@ wealthwise-v2/
 │   │   ├── models/          # holding, profile, account (SQLAlchemy ORM)
 │   │   ├── schemas/         # holding, profile, account (Pydantic v2)
 │   │   ├── services/        # portfolio_data, portfolio_calc, health_score, insight_engine,
-│   │   │                    # prompt_builder, hook_templates, export_report
+│   │   │                    # prompt_builder, hook_templates, export_report,
+│   │   │                    # classification, ticker_provider (new in Phase 3)
 │   │   ├── db/database.py   # async engine + session
 │   │   └── core/config.py   # pydantic-settings
 │   └── alembic/
@@ -75,6 +76,8 @@ wealthwise-v2/
   - Frontend hits `/api/v1/health` (not `/api/health`)
 - **Python management:** uv (not pip/venv) for dependency management
 - **The user is new to React** — explain hooks, JSX, props clearly
+- **Ticker data provider abstraction** — `TickerProvider` ABC in `services/ticker_provider.py`, with `YFinanceProvider` as the current implementation. Switching providers = new class + config change. The endpoint never imports yfinance directly.
+- **Holding classification stored at creation** — `type`, `asset_class`, `sector`, `geography`, `currency`, `ocf_pct`, `dividend_yield_pct`, `isin` are auto-populated from ticker lookup and stored in the DB. The old `_infer_*()` heuristics in `allocations.py` have been deleted.
 
 ## UI Design System — All new UI must follow this
 
@@ -133,17 +136,24 @@ Place these into `backend/app/services/`:
 - Phase 1 (Scaffolding): ✅ Complete — FastAPI + React + Docker Compose working
 - Phase 2a (Manual Portfolio Builder): ✅ Complete — holdings CRUD, ticker search, summary
 - Phase 2b (Profile + Accounts): ✅ Complete — profile CRUD, accounts CRUD, inline editing, settings modal
-- Phase 2c (Allocations + Health + Insights): ✅ Complete — asset/sector/geo breakdowns, health scores, 7 insight detectors, donut charts
-- Phase 3 (LLM Analysis Engine): 📅 Planned — [see migration analysis](docs/chatbot-migration-analysis.md)
-  - Prerequisite: enrich holding data from yfinance (type, asset_class, sector, OCF, etc.)
-  - Phase 3a: context builder + system prompt + guardrails + chat endpoint
-  - Phase 3b: React ChatPanel + wire HookInsightCard "Ask AI" buttons
-  - Phase 3c (later): ReAct loop (when needed — see decision triggers in migration analysis)
+- Phase 2c (Allocations + Health + Insights): 🔄 Partial — backend services migrated and allocations UI works, but:
+  - ❌ Health score API + UI missing (no endpoint or component)
+  - ❌ Insights list API + UI missing (7 detectors exist, no endpoint or component)
+  - ❌ "Ask AI" button rendered but inert (deferred to Phase 3b)
+  - ❌ PDF export button missing (export_report.py migrated but not wired)
+- Phase 3 (LLM Analysis Engine): 📅 In Progress
+  - ✅ Prerequisite (Holding Data Enrichment) — `classification.py`, `ticker_provider.py` created, holding model + schemas extended with 8 new fields, ticker endpoint returns classification data, purchase price input added to fix cost basis bug, `_infer_*()` deleted from allocations.py, alembic migration created
+  - ✅ Phase 0 (Chat Models) — ChatSession, ChatMessage, UserMemory models + MemoryService + migration
+  - ✅ Phase 1 (Context Builder) — `context_builder.py` assembles full LLMPortfolioContext payload from DB
+  - ✅ Phase 2 (Chat Service) — `chat_service.py` + `system_prompt.py` + `guardrails.py`
+  - ✅ Phase 3 (API Endpoint) — `POST /api/v1/chat` + `GET /api/v1/chat/{session_id}/messages`
+  - ✅ Phase 4 (Frontend) — ChatPanel.jsx with loading/empty/error/message/reasoning states, HookInsightCard "Ask AI" wired, ChatPanel integrated into App.jsx, CSS styles added
+  - ⬜ Phase 5+: ReAct loop, episodic/semantic memory (deferred)
 
 ### Current API endpoints
 - `GET /api/health` — health check
 - `GET /api/v1/health` — v1 health check (DB ping)
-- `GET /api/v1/ticker/{symbol}` — yfinance ticker lookup
+- `GET /api/v1/ticker/{symbol}` — ticker lookup (via abstract TickerProvider, includes classification fields)
 - `POST /api/v1/portfolio/holdings` — create holding
 - `GET /api/v1/portfolio/holdings` — list holdings
 - `PUT /api/v1/portfolio/holdings/{id}` — update holding
@@ -156,6 +166,8 @@ Place these into `backend/app/services/`:
 - `PUT /api/v1/accounts/{id}` — update account
 - `DELETE /api/v1/accounts/{id}` — delete account
 - `GET /api/v1/portfolio/allocations?tab=` — asset/sector/geo breakdowns + insight hook
+- `POST /api/v1/chat` — Send message + get LLM portfolio analysis (context-injected)
+- `GET /api/v1/chat/{session_id}/messages` — Load conversation history
 
 ## Memory Management Rules — Always Follow
 

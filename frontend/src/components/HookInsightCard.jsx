@@ -4,10 +4,11 @@
  * Props:
  *   hook — { insight, prompt, ai_question, severity }
  *          severity is one of "info", "warning", "action"
+ *   onAsk — (question: string) => void, called when "Ask AI" button is clicked
  *
  * Severity icons: info = 💡, warning = ⚠️, action = 🎯
  */
-function HookInsightCard({ hook }) {
+function HookInsightCard({ hook, onAsk }) {
   if (!hook || !hook.insight) return null;
 
   const severityIcons = {
@@ -16,6 +17,12 @@ function HookInsightCard({ hook }) {
     action: '🎯',  // 🎯
   };
   const icon = severityIcons[hook.severity] || '💡';
+
+  function handleAsk() {
+    if (onAsk && hook.ai_question) {
+      onAsk(hook.ai_question);
+    }
+  }
 
   return (
     <div className={`hook-card hook-${hook.severity}`}>
@@ -26,6 +33,7 @@ function HookInsightCard({ hook }) {
       <button
         className="hook-ask-btn"
         title="Ask AI about this insight"
+        onClick={handleAsk}
       >
         Ask AI
       </button>

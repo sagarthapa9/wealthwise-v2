@@ -17,7 +17,7 @@ const TAB_LABELS = {
  * Props:
  *   hasHoldings — boolean, whether the portfolio has any holdings
  */
-function AllocationSection({ hasHoldings }) {
+function AllocationSection({ hasHoldings, onAsk }) {
   const [activeTab, setActiveTab] = useState('asset_class');
   const [allocData, setAllocData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -89,7 +89,7 @@ function AllocationSection({ hasHoldings }) {
           <>
             <AllocationDonut data={currentAlloc} />
             <AllocationTable data={currentAlloc} />
-            <HookInsightCard hook={hook} />
+            <HookInsightCard hook={hook} onAsk={onAsk} />
           </>
         )}
       </div>

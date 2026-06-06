@@ -35,79 +35,24 @@ router = APIRouter(tags=["allocations"])
 def _orm_to_dataclass(h: ORMHolding) -> DataHolding:
     """Convert a DB Holding ORM row into a PortfolioData Holding dataclass.
 
-    Fields like asset_class, sector, geography are inferred from the ticker
-    since the manual entry form doesn't capture them yet.
+    Uses the classification fields stored on the holding from the ticker
+    provider lookup (type, asset_class, sector, geography, currency, etc.).
+    These were auto-populated when the holding was added via TickerSearch.
     """
-    ticker = h.ticker.upper()
-    name = h.name
-
-    # Infer asset class, sector, geography from ticker
-    asset_class = _infer_asset_class(ticker, name)
-    sector = _infer_sector(ticker, asset_class)
-    geography = _infer_geography(ticker)
-
     return DataHolding(
-        ticker=ticker,
-        name=name,
-        type="ETF",  # Manual entry assumes ETFs for now
-        asset_class=asset_class,
-        sector=sector,
-        geography=geography,
+        ticker=h.ticker.upper(),
+        name=h.name,
+        type=h.type or "ETF",
+        asset_class=h.asset_class or "equity",
+        sector=h.sector or "global_diversified",
+        geography=h.geography or "global",
         quantity=int(h.quantity),
         cost_basis_pence=int(h.cost_basis_per_share * 100),
         current_price_pence=int(h.current_price * 100),
-        currency="GBP",
+        currency=h.currency or "GBP",
+        ocf_pct=h.ocf_pct,
+        dividend_yield_pct=h.dividend_yield_pct,
     )
-
-
-def _infer_asset_class(ticker: str, name: str) -> str:
-    """Guess asset class from ticker prefix or fund name."""
-    name_lower = name.lower()
-
-    if any(k in name_lower for k in ["bond", "gilt", "fixed income", "corporate bond"]):
-        return "fixed_income"
-    if any(k in name_lower for k in ["cash", "money market"]):
-        return "cash"
-    if any(k in name_lower for k in ["property", "real estate"]):
-        return "property"
-
-    # Vanguard ticker conventions
-    bond_prefixes = ["VAGP", "VAFG", "IGLT", "IGET"]
-    if any(ticker.startswith(p) for p in bond_prefixes):
-        return "fixed_income"
-
-    # Default — most ETFs are equity
-    return "equity"
-
-
-def _infer_sector(ticker: str, asset_class: str) -> str:
-    """Guess sector from ticker and asset class."""
-    if asset_class == "fixed_income":
-        return "government_bonds" if ticker.startswith("IGLT") else "corporate_bonds"
-    if ticker.startswith("VUAG") or ticker.startswith("VUSA") or ticker.startswith("VOO"):
-        return "us_large_cap"
-    if ticker.startswith("VWRL") or ticker.startswith("VWRP") or ticker.startswith("HMWO"):
-        return "global_diversified"
-    if ticker.startswith("VHYG"):
-        return "global_equity"
-    if ticker.startswith("VAPX"):
-        return "asia_pacific"
-    return "global_diversified"
-
-
-def _infer_geography(ticker: str) -> str:
-    """Guess geography from ticker."""
-    if ticker.startswith("VUAG") or ticker.startswith("VUSA") or ticker.startswith("VOO"):
-        return "us"
-    if ticker.startswith("VERX"):
-        return "europe"
-    if ticker.startswith("IGLT") or ticker.startswith("VUKG"):
-        return "uk"
-    if ticker.startswith("VAPX"):
-        return "asia_pacific"
-    if ticker.startswith("VDEM"):
-        return "emerging_markets"
-    return "global"
 
 
 @router.get("/portfolio/allocations")

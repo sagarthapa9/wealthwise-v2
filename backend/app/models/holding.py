@@ -20,6 +20,19 @@ class Holding(Base):
     account_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
     )
+
+    # ── Classification fields (populated from ticker provider at creation) ──
+    type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    asset_class: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    sector: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    geography: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+
+    # ── Financial metadata (from ticker provider) ──────────────────────────
+    ocf_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dividend_yield_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    isin: Mapped[str | None] = mapped_column(String(12), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

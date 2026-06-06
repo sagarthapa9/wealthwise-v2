@@ -7,6 +7,9 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://wealthwise:wealthwise@db:5432/wealthwise
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
     depends_on:
       db:
         condition: service_healthy

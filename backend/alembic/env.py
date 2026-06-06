@@ -15,6 +15,7 @@ from alembic import context
 # Import our model metadata so alembic can autogenerate migrations
 from app.db.database import Base
 from app.models import Holding  # noqa: F401 — registers model with Base
+from app.models import ChatSession, ChatMessage, UserMemory  # noqa: F401
 
 # Alembic Config — reads alembic.ini
 config = context.config

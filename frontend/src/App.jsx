@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import PortfolioTable from './components/PortfolioTable';
 import TickerSearch from './components/TickerSearch';
 import AllocationSection from './components/AllocationSection';
 import SettingsModal from './components/SettingsModal';
 import ProfilePanel from './components/ProfilePanel';
+import ChatPanel from './components/ChatPanel';
 
 function App() {
   const [holdings, setHoldings] = useState([]);
@@ -13,6 +16,10 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [profileRefreshKey, setProfileRefreshKey] = useState(0);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState(null);
+  const [chatInitialMessage, setChatInitialMessage] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState(null);        // hero card response
+  const [aiLoading, setAiLoading] = useState(false);          // hero card loading
 
   const loadHoldings = useCallback(async () => {
     try {
@@ -45,17 +52,26 @@ function App() {
   }, [loadHoldings]);
 
   /** Add a holding (called by TickerSearch after user confirms) */
-  async function handleAddHolding(ticker, name, price, quantity) {
+  async function handleAddHolding(holding) {
     try {
       const res = await fetch('/api/v1/portfolio/holdings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ticker: ticker.trim().toUpperCase(),
-          name,
-          quantity: parseFloat(quantity) || 0,
-          cost_basis_per_share: parseFloat(price) || 0,
-          current_price: parseFloat(price) || 0,
+          ticker: holding.ticker.trim().toUpperCase(),
+          name: holding.name,
+          quantity: holding.quantity || 0,
+          cost_basis_per_share: holding.cost_basis_per_share || 0,
+          current_price: holding.current_price || 0,
+          // Classification fields (auto-populated from ticker lookup)
+          type: holding.type || null,
+          asset_class: holding.asset_class || null,
+          sector: holding.sector || null,
+          geography: holding.geography || null,
+          currency: holding.currency || null,
+          ocf_pct: holding.ocf_pct || null,
+          dividend_yield_pct: holding.dividend_yield_pct || null,
+          isin: holding.isin || null,
         }),
       });
       if (!res.ok) throw new Error('Save failed');
@@ -73,6 +89,47 @@ function App() {
       await loadHoldings();
     } catch (err) {
       alert('Failed to delete: ' + err.message);
+    }
+  }
+
+  /** Send an insight question to the chat panel */
+  function handleAsk(question) {
+    setChatInitialMessage(question);
+  }
+
+  /** Analyze Portfolio button — shows charts + fetches AI analysis hero card */
+  async function handleAnalyze() {
+    setShowAnalysis(true);
+    setChatInitialMessage("Here is an analysis of the portfolio, providing a brief summary of its total value, overall health grade, and the most important issue that needs to be addressed.");
+
+    // Don't re-fetch if we already have analysis data
+    if (aiAnalysis) return;
+
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: "Here is an analysis of the portfolio, providing a brief summary of its total value, overall health grade, and the most important issue that needs to be addressed.",
+          session_id: chatSessionId,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiAnalysis({
+          message: data.message,
+          reasoning_content: data.reasoning_content,
+        });
+        if (data.session_id && data.session_id !== chatSessionId) {
+          setChatSessionId(data.session_id);
+        }
+      }
+    } catch {
+      // ChatPanel will show the error state for follow-ups; hero card just
+      // doesn't appear — user can type in the chat manually.
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -139,16 +196,72 @@ function App() {
             <button
               className="btn-analyze"
               disabled={holdings.length === 0}
-              onClick={() => setShowAnalysis(true)}
+              onClick={handleAnalyze}
             >
               Analyze Portfolio
             </button>
           </div>
         </div>
 
-        {/* ── Analysis Section (shown after clicking Analyze) ──── */}
+        {/* ── Analysis Section (after clicking Analyze) ──── */}
         {showAnalysis && (
           <>
+            {/* ── AI Analysis Hero Card ──────────────── */}
+            {aiLoading && (
+              <div className="ai-hero ai-hero-loading">
+                <div className="ai-hero-header">
+                  <span className="ai-hero-icon">✨</span>
+                  <span className="ai-hero-title">Analysing your portfolio...</span>
+                </div>
+              </div>
+            )}
+
+            {aiAnalysis && (
+              <div className="ai-hero">
+                <div className="ai-hero-header">
+                  <span className="ai-hero-icon">✨</span>
+                  <span className="ai-hero-title">AI Portfolio Analysis</span>
+                </div>
+                <div className="ai-hero-body">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table({ children }) {
+                        return (
+                          <div className="md-table-wrap">
+                            <table className="md-table">{children}</table>
+                          </div>
+                        );
+                      },
+                      th({ children }) {
+                        return <th className="md-th">{children}</th>;
+                      },
+                      td({ children }) {
+                        return <td className="md-td">{children}</td>;
+                      },
+                      code({ className, children, ...props }) {
+                        const isInline = !className;
+                        return isInline
+                          ? <code className="md-code-inline">{children}</code>
+                          : <pre className="md-code-block"><code>{children}</code></pre>;
+                      },
+                      strong({ children }) {
+                        return <strong className="md-strong">{children}</strong>;
+                      },
+                    }}
+                  >
+                    {aiAnalysis.message}
+                  </ReactMarkdown>
+                </div>
+                {aiAnalysis.reasoning_content && (
+                  <details className="ai-hero-reasoning">
+                    <summary className="ai-hero-reasoning-summary">💭 AI Thinking</summary>
+                    <div className="ai-hero-reasoning-content">{aiAnalysis.reasoning_content}</div>
+                  </details>
+                )}
+              </div>
+            )}
+
             {/* Summary Metrics */}
             {summary && summary.holding_count > 0 && (
               <div className="summary-strip">
@@ -181,9 +294,19 @@ function App() {
             )}
 
             {/* Allocation Breakdown */}
-            <AllocationSection hasHoldings={holdings.length > 0} />
+            <AllocationSection
+              hasHoldings={holdings.length > 0}
+              onAsk={handleAsk}
+            />
           </>
         )}
+
+        {/* ── Chat Panel (follow-up questions) ── */}
+        <ChatPanel
+          sessionId={chatSessionId}
+          onSessionChange={setChatSessionId}
+          initialMessage={chatInitialMessage}
+        />
       </div>
     </div>
 

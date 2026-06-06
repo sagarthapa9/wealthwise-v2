@@ -27,7 +27,9 @@ class Holding:
     quantity: int
     cost_basis_pence: int
     current_price_pence: int
-    currency: Literal["GBP"] = "GBP"
+    currency: str = "GBP"
+    ocf_pct: float | None = None
+    dividend_yield_pct: float | None = None
 
     @property
     def value_gbp(self) -> float:
