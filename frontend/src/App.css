@@ -1606,15 +1606,11 @@ body {
   margin-bottom: 1.5rem;
 }
 
-.ai-hero-loading {
-  opacity: 0.7;
-}
-
 .ai-hero-header {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
   border-bottom: 1.5px solid #e0e0e0;
 }
@@ -1629,10 +1625,93 @@ body {
   color: #1a1a1a;
 }
 
+/* ── Stat Cards Row ──────────────────────────────────────────────────── */
+
+.ai-stat-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.ai-stat-card {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.ai-stat-value {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.2rem;
+}
+
+.ai-stat-grade {
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.ai-stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* ── Collapsible full analysis ───────────────────────────────────────── */
+
+.ai-hero-collapse {
+  border-top: 1.5px solid #e0e0e0;
+  padding-top: 0.75rem;
+}
+
+.ai-hero-preview {
+  position: relative;
+  max-height: 18em;
+  overflow: hidden;
+}
+
+.ai-hero-preview::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2em;
+  background: linear-gradient(transparent, #f0f4ff);
+}
+
+.ai-hero-more-btn {
+  background: none;
+  border: 1px solid #d4d4d4;
+  border-radius: 8px;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 500;
+  color: #2563EB;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 0.5rem;
+}
+
+.ai-hero-more-btn:hover {
+  background: #e8e8e8;
+  color: #1a4fc4;
+}
+
 .ai-hero-body {
   font-size: 0.92rem;
   line-height: 1.6;
   color: #1a1a1a;
+  margin-top: 0.75rem;
 }
 
 .ai-hero-body h1,
@@ -1746,4 +1825,45 @@ body {
   white-space: pre-wrap;
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* ── Loading Skeleton ────────────────────────────────────────────────── */
+
+@keyframes ai-skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.ai-hero-loading {
+  pointer-events: none;
+}
+
+.ai-skeleton-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ai-skeleton-card {
+  flex: 1;
+  height: 80px;
+  background: #e8e8e8;
+  border-radius: 12px;
+  animation: ai-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.ai-skeleton-line {
+  height: 14px;
+  background: #e8e8e8;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  animation: ai-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.ai-skeleton-line:nth-child(5) {
+  animation-delay: 0.1s;
+}
+
+.ai-skeleton-line:nth-child(6) {
+  animation-delay: 0.2s;
 }

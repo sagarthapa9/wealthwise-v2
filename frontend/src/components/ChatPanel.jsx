@@ -126,7 +126,7 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage }) {
     <div className="chat-panel">
       {/* ── Header ── */}
       <div className="chat-header">
-        <h3 className="chat-title">Portfolio Analysis</h3>
+        <h3 className="chat-title">Explore Your Portfolio</h3>
         <span className="chat-badge">
           <svg className="chat-badge-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/>
@@ -141,10 +141,10 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage }) {
           <div className="chat-empty">
             <div className="chat-empty-icon">💬</div>
             <p className="chat-empty-text">
-              Your portfolio analysis will appear here.
+              Ask a follow-up about your portfolio
             </p>
             <p className="chat-empty-hint">
-              Click <strong>Analyze Portfolio</strong> or ask me anything about your investments.
+              Try: "How can I reduce my costs?" • "Am I diversified enough?" • "What's my tax efficiency?"
             </p>
           </div>
         )}

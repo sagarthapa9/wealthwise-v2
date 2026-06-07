@@ -18,8 +18,9 @@ function App() {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [chatSessionId, setChatSessionId] = useState(null);
   const [chatInitialMessage, setChatInitialMessage] = useState(null);
-  const [aiAnalysis, setAiAnalysis] = useState(null);        // hero card response
-  const [aiLoading, setAiLoading] = useState(false);          // hero card loading
+  const [aiAnalysis, setAiAnalysis] = useState(null);          // hero card response
+  const [aiLoading, setAiLoading] = useState(false);           // hero card loading
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
   const loadHoldings = useCallback(async () => {
     try {
@@ -92,15 +93,29 @@ function App() {
     }
   }
 
+  /** Extract health grade from LLM response text — looks for patterns like "Health Grade: C" or "Grade: B+" */
+  function extractGrade(text) {
+    const match = text.match(/(?:Health\s*)?[Gg]rade\s*[:：]\s*([A-E][+-]?)/);
+    return match ? match[1] : '—';
+  }
+
+  /** Show first N lines of text as a preview */
+  function truncateText(text, lines) {
+    const parts = text.split('\n');
+    const preview = parts.slice(0, lines).join('\n');
+    return parts.length > lines ? preview + '\n\n*…*' : preview;
+  }
+
   /** Send an insight question to the chat panel */
   function handleAsk(question) {
     setChatInitialMessage(question);
   }
 
+  const ANALYSIS_PROMPT = "Here is an analysis of the portfolio, providing a brief summary of its total value, overall health grade, and the most important issue that needs to be addressed.";
+
   /** Analyze Portfolio button — shows charts + fetches AI analysis hero card */
   async function handleAnalyze() {
     setShowAnalysis(true);
-    setChatInitialMessage("Here is an analysis of the portfolio, providing a brief summary of its total value, overall health grade, and the most important issue that needs to be addressed.");
 
     // Don't re-fetch if we already have analysis data
     if (aiAnalysis) return;
@@ -111,8 +126,9 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: "Here is an analysis of the portfolio, providing a brief summary of its total value, overall health grade, and the most important issue that needs to be addressed.",
-          session_id: chatSessionId,
+          message: ANALYSIS_PROMPT,
+          // No session_id — hero card uses its own orphan session
+          // so it doesn't pollute the chat panel's conversation history
         }),
       });
       if (res.ok) {
@@ -121,9 +137,7 @@ function App() {
           message: data.message,
           reasoning_content: data.reasoning_content,
         });
-        if (data.session_id && data.session_id !== chatSessionId) {
-          setChatSessionId(data.session_id);
-        }
+        // Don't set chatSessionId from hero card — keep chat panel independent
       }
     } catch {
       // ChatPanel will show the error state for follow-ups; hero card just
@@ -206,62 +220,6 @@ function App() {
         {/* ── Analysis Section (after clicking Analyze) ──── */}
         {showAnalysis && (
           <>
-            {/* ── AI Analysis Hero Card ──────────────── */}
-            {aiLoading && (
-              <div className="ai-hero ai-hero-loading">
-                <div className="ai-hero-header">
-                  <span className="ai-hero-icon">✨</span>
-                  <span className="ai-hero-title">Analysing your portfolio...</span>
-                </div>
-              </div>
-            )}
-
-            {aiAnalysis && (
-              <div className="ai-hero">
-                <div className="ai-hero-header">
-                  <span className="ai-hero-icon">✨</span>
-                  <span className="ai-hero-title">AI Portfolio Analysis</span>
-                </div>
-                <div className="ai-hero-body">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      table({ children }) {
-                        return (
-                          <div className="md-table-wrap">
-                            <table className="md-table">{children}</table>
-                          </div>
-                        );
-                      },
-                      th({ children }) {
-                        return <th className="md-th">{children}</th>;
-                      },
-                      td({ children }) {
-                        return <td className="md-td">{children}</td>;
-                      },
-                      code({ className, children, ...props }) {
-                        const isInline = !className;
-                        return isInline
-                          ? <code className="md-code-inline">{children}</code>
-                          : <pre className="md-code-block"><code>{children}</code></pre>;
-                      },
-                      strong({ children }) {
-                        return <strong className="md-strong">{children}</strong>;
-                      },
-                    }}
-                  >
-                    {aiAnalysis.message}
-                  </ReactMarkdown>
-                </div>
-                {aiAnalysis.reasoning_content && (
-                  <details className="ai-hero-reasoning">
-                    <summary className="ai-hero-reasoning-summary">💭 AI Thinking</summary>
-                    <div className="ai-hero-reasoning-content">{aiAnalysis.reasoning_content}</div>
-                  </details>
-                )}
-              </div>
-            )}
-
             {/* Summary Metrics */}
             {summary && summary.holding_count > 0 && (
               <div className="summary-strip">
@@ -293,6 +251,148 @@ function App() {
               </div>
             )}
 
+            {/* ── Loading Skeleton ──────────────────── */}
+            {aiLoading && (
+              <div className="ai-hero ai-hero-loading">
+                <div className="ai-hero-header">
+                  <span className="ai-hero-icon">✨</span>
+                  <span className="ai-hero-title">Analysing your portfolio...</span>
+                </div>
+                <div className="ai-skeleton-row">
+                  <div className="ai-skeleton-card" />
+                  <div className="ai-skeleton-card" />
+                  <div className="ai-skeleton-card" />
+                </div>
+                <div className="ai-skeleton-line" />
+                <div className="ai-skeleton-line" style={{ width: '70%' }} />
+                <div className="ai-skeleton-line" style={{ width: '85%' }} />
+              </div>
+            )}
+
+            {/* ── AI Portfolio Analysis Hero Card ────── */}
+            {aiAnalysis && (
+              <div className="ai-hero">
+                <div className="ai-hero-header">
+                  <span className="ai-hero-icon">✨</span>
+                  <span className="ai-hero-title">AI Portfolio Analysis</span>
+                </div>
+
+                {/* Stat cards — key metrics at a glance */}
+                <div className="ai-stat-row">
+                  <div className="ai-stat-card">
+                    <span className="ai-stat-value">
+                      £{summary ? summary.total_value.toLocaleString(undefined, { minimumFractionDigits: 0 }) : '—'}
+                    </span>
+                    <span className="ai-stat-label">Portfolio Value</span>
+                  </div>
+                  <div className="ai-stat-card">
+                    <span className="ai-stat-value ai-stat-grade">
+                      {extractGrade(aiAnalysis.message)}
+                    </span>
+                    <span className="ai-stat-label">Health Grade</span>
+                  </div>
+                  <div className="ai-stat-card">
+                    <span className="ai-stat-value">
+                      {summary ? summary.holding_count : '—'}
+                    </span>
+                    <span className="ai-stat-label">Holdings</span>
+                  </div>
+                </div>
+
+                {/* Preview text + Read more */}
+                <div className="ai-hero-collapse">
+                  {showFullAnalysis ? (
+                    <>
+                      <div className="ai-hero-body">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            table({ children }) {
+                              return (
+                                <div className="md-table-wrap">
+                                  <table className="md-table">{children}</table>
+                                </div>
+                              );
+                            },
+                            th({ children }) {
+                              return <th className="md-th">{children}</th>;
+                            },
+                            td({ children }) {
+                              return <td className="md-td">{children}</td>;
+                            },
+                            code({ className, children, ...props }) {
+                              const isInline = !className;
+                              return isInline
+                                ? <code className="md-code-inline">{children}</code>
+                                : <pre className="md-code-block"><code>{children}</code></pre>;
+                            },
+                            strong({ children }) {
+                              return <strong className="md-strong">{children}</strong>;
+                            },
+                          }}
+                        >
+                          {aiAnalysis.message}
+                        </ReactMarkdown>
+                      </div>
+                      <button
+                        className="ai-hero-more-btn"
+                        onClick={() => setShowFullAnalysis(false)}
+                      >
+                        Show less ▴
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="ai-hero-body ai-hero-preview">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            table({ children }) {
+                              return (
+                                <div className="md-table-wrap">
+                                  <table className="md-table">{children}</table>
+                                </div>
+                              );
+                            },
+                            th({ children }) {
+                              return <th className="md-th">{children}</th>;
+                            },
+                            td({ children }) {
+                              return <td className="md-td">{children}</td>;
+                            },
+                            code({ className, children, ...props }) {
+                              const isInline = !className;
+                              return isInline
+                                ? <code className="md-code-inline">{children}</code>
+                                : <pre className="md-code-block"><code>{children}</code></pre>;
+                            },
+                            strong({ children }) {
+                              return <strong className="md-strong">{children}</strong>;
+                            },
+                          }}
+                        >
+                          {truncateText(aiAnalysis.message, 10)}
+                        </ReactMarkdown>
+                      </div>
+                      <button
+                        className="ai-hero-more-btn"
+                        onClick={() => setShowFullAnalysis(true)}
+                      >
+                        Read more ▾
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Reasoning toggle */}
+                {aiAnalysis.reasoning_content && (
+                  <details className="ai-hero-reasoning">
+                    <summary className="ai-hero-reasoning-summary">💭 AI Thinking</summary>
+                    <div className="ai-hero-reasoning-content">{aiAnalysis.reasoning_content}</div>
+                  </details>
+                )}
+              </div>
+            )}
             {/* Allocation Breakdown */}
             <AllocationSection
               hasHoldings={holdings.length > 0}
