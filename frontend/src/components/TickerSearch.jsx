@@ -1,17 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 
 /**
- * TickerSearch — search input with autocomplete dropdown + shares + purchase price.
+ * TickerSearch — search input with autocomplete dropdown + shares + purchase price + account selector.
  *
  * Flow:
  *   User types ticker → autocomplete shows matching results (with classification data)
  *   User clicks result → fills name, price, and metadata
+ *   User selects account (optional)
  *   User enters shares + optional purchase price → clicks "+" to add
  */
-function TickerSearch({ onAdd }) {
+function TickerSearch({ onAdd, accounts }) {
   const [query, setQuery] = useState('');
   const [shares, setShares] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
   const [results, setResults] = useState(null);   // null = no search yet
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
@@ -101,13 +103,19 @@ function TickerSearch({ onAdd }) {
       alert('Please enter a valid number of shares.');
       return;
     }
+    if (!selectedAccountId) {
+      alert('Please select an account for this holding.');
+      return;
+    }
     const pp = purchasePrice ? parseFloat(purchasePrice) : selectedResult.price;
+    const aid = parseInt(selectedAccountId, 10);
     onAdd({
       ticker: selectedResult.ticker,
       name: selectedResult.name,
       current_price: selectedResult.price,
       cost_basis_per_share: pp,
       quantity: parseFloat(shares),
+      account_id: aid,
       type: selectedResult.type,
       asset_class: selectedResult.asset_class,
       sector: selectedResult.sector,
@@ -182,11 +190,27 @@ function TickerSearch({ onAdd }) {
           title="Leave blank to use current market price as cost basis"
         />
 
+        {/* Account selector */}
+        <select
+          className="account-select-input"
+          value={selectedAccountId}
+          onChange={(e) => setSelectedAccountId(e.target.value)}
+          disabled={!selectedResult}
+          title="Required: select an account"
+        >
+          <option value="">Select account…</option>
+          {accounts && accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.provider} ({a.account_type})
+            </option>
+          ))}
+        </select>
+
         {/* Add button */}
         <button
           className="btn-add-ticker"
           onClick={handleAdd}
-          disabled={!selectedResult || !shares || parseFloat(shares) <= 0}
+          disabled={!selectedResult || !shares || parseFloat(shares) <= 0 || !selectedAccountId}
         >
           +
         </button>

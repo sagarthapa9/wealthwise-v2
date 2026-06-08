@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import PortfolioTable from './components/PortfolioTable';
@@ -10,6 +10,7 @@ import ChatPanel from './components/ChatPanel';
 
 function App() {
   const [holdings, setHoldings] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState('GBP');
@@ -21,6 +22,21 @@ function App() {
   const [aiAnalysis, setAiAnalysis] = useState(null);          // hero card response
   const [aiLoading, setAiLoading] = useState(false);           // hero card loading
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  const [analysisStale, setAnalysisStale] = useState(false);
+  const summaryRef = useRef(null);
+
+  // On mount, scroll to summary metrics if analysis exists, otherwise focus ticker search
+  useEffect(() => {
+    if (!loading) {
+      if (aiAnalysis) {
+        setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+      } else {
+        document.querySelector('.ticker-search-input')?.focus();
+      }
+    }
+  }, [loading, aiAnalysis]);
+  const [newAccountProvider, setNewAccountProvider] = useState('');
+  const [newAccountType, setNewAccountType] = useState('ISA');
 
   const loadHoldings = useCallback(async () => {
     try {
@@ -48,9 +64,56 @@ function App() {
     }
   }, []);
 
+  const loadAccounts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/accounts');
+      if (res.ok) {
+        setAccounts(await res.json());
+      }
+    } catch {
+      // best-effort
+    }
+  }, []);
+
+  // Check if any holding was added after the analysis — marks stale across refreshes
+  function checkStale(holdingsData, generatedAt) {
+    if (!generatedAt || !holdingsData || holdingsData.length === 0) return;
+    const analysisTime = new Date(generatedAt).getTime();
+    const newestHolding = Math.max(...holdingsData.map(h => new Date(h.created_at).getTime()));
+    if (newestHolding > analysisTime) {
+      setAnalysisStale(true);
+    }
+  }
+
   useEffect(() => {
     loadHoldings();
-  }, [loadHoldings]);
+    loadAccounts();
+    // Restore the last chat session from the database on mount
+    fetch('/api/v1/chat/latest')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.session_id) {
+          setChatSessionId(data.session_id);
+          setShowAnalysis(true);
+          if (data.message) {
+            const analysisData = {
+              message: data.message,
+              reasoning_content: data.reasoning_content,
+              generated_at: data.generated_at,
+            };
+            setAiAnalysis(analysisData);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [loadHoldings, loadAccounts]);
+
+  // Check stale status whenever holdings finish loading after analysis restore
+  useEffect(() => {
+    if (aiAnalysis?.generated_at && holdings.length > 0) {
+      checkStale(holdings, aiAnalysis.generated_at);
+    }
+  }, [holdings, aiAnalysis?.generated_at]);
 
   /** Add a holding (called by TickerSearch after user confirms) */
   async function handleAddHolding(holding) {
@@ -64,6 +127,7 @@ function App() {
           quantity: holding.quantity || 0,
           cost_basis_per_share: holding.cost_basis_per_share || 0,
           current_price: holding.current_price || 0,
+          account_id: holding.account_id || null,
           // Classification fields (auto-populated from ticker lookup)
           type: holding.type || null,
           asset_class: holding.asset_class || null,
@@ -77,8 +141,29 @@ function App() {
       });
       if (!res.ok) throw new Error('Save failed');
       await loadHoldings();
+      if (aiAnalysis) setAnalysisStale(true);
     } catch (err) {
       alert('Failed to add holding: ' + err.message);
+    }
+  }
+
+  /** Create a new account via inline form */
+  async function handleCreateAccount() {
+    if (!newAccountProvider.trim()) {
+      alert('Please enter a provider name.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/v1/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: newAccountProvider.trim(), account_type: newAccountType }),
+      });
+      if (!res.ok) throw new Error('Failed to create account');
+      setNewAccountProvider('');
+      await loadAccounts();
+    } catch (err) {
+      alert('Error creating account: ' + err.message);
     }
   }
 
@@ -88,6 +173,7 @@ function App() {
     try {
       await fetch(`/api/v1/portfolio/holdings/${id}`, { method: 'DELETE' });
       await loadHoldings();
+      if (aiAnalysis) setAnalysisStale(true);
     } catch (err) {
       alert('Failed to delete: ' + err.message);
     }
@@ -116,9 +202,10 @@ function App() {
   /** Analyze Portfolio button — shows charts + fetches AI analysis hero card */
   async function handleAnalyze() {
     setShowAnalysis(true);
+    setAnalysisStale(false);
 
-    // Don't re-fetch if we already have analysis data
-    if (aiAnalysis) return;
+    // Use existing chat session so conversation stays continuous
+    const sessionId = chatSessionId;
 
     setAiLoading(true);
     try {
@@ -127,8 +214,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: ANALYSIS_PROMPT,
-          // No session_id — hero card uses its own orphan session
-          // so it doesn't pollute the chat panel's conversation history
+          session_id: sessionId,
         }),
       });
       if (res.ok) {
@@ -136,8 +222,12 @@ function App() {
         setAiAnalysis({
           message: data.message,
           reasoning_content: data.reasoning_content,
+          generated_at: new Date().toISOString(),
         });
-        // Don't set chatSessionId from hero card — keep chat panel independent
+        // Set the session so ChatPanel can load the conversation history
+        if (data.session_id) {
+          setChatSessionId(data.session_id);
+        }
       }
     } catch {
       // ChatPanel will show the error state for follow-ups; hero card just
@@ -154,6 +244,9 @@ function App() {
       <ProfilePanel
         refreshKey={profileRefreshKey}
         onOpenSettings={() => setShowSettings(true)}
+        holdings={holdings}
+        accounts={accounts}
+        onAccountChange={() => { loadHoldings(); loadAccounts(); }}
       />
 
       {/* ── Portfolio Card ──────────────────── */}
@@ -170,8 +263,39 @@ function App() {
           </button>
         </div>
 
-        {/* ── Ticker Entry Row ────────────────────── */}
-        <TickerSearch onAdd={handleAddHolding} />
+        {/* ── Account-first flow ──────────────────── */}
+        {accounts.length === 0 ? (
+          <div className="no-account-prompt">
+            <div className="no-account-icon">🏦</div>
+            <p className="no-account-text">Set up your first account to start tracking your portfolio</p>
+            <div className="no-account-form">
+              <input
+                className="no-account-input"
+                type="text"
+                value={newAccountProvider}
+                onChange={(e) => setNewAccountProvider(e.target.value)}
+                placeholder="Provider name (e.g. Vanguard, AJ Bell)"
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateAccount()}
+              />
+              <select
+                className="no-account-select"
+                value={newAccountType}
+                onChange={(e) => setNewAccountType(e.target.value)}
+              >
+                <option value="ISA">ISA</option>
+                <option value="SIPP">SIPP</option>
+                <option value="GIA">GIA</option>
+                <option value="LISA">LISA</option>
+              </select>
+              <button className="btn-add-ticker" onClick={handleCreateAccount}>+</button>
+            </div>
+            <button className="btn-settings-link" onClick={() => setShowSettings(true)}>
+              Add cash balance & more details in Settings ⚙️
+            </button>
+          </div>
+        ) : (
+          <TickerSearch onAdd={handleAddHolding} accounts={accounts} />
+        )}
 
         {/* ── Divider: "or import CSV" ────────────── */}
         <div className="entry-divider">
@@ -189,6 +313,7 @@ function App() {
         {/* ── Portfolio Table ──────────────────────── */}
         <PortfolioTable
           holdings={holdings}
+          accounts={accounts}
           loading={loading}
           onDelete={handleDelete}
         />
@@ -208,11 +333,11 @@ function App() {
             </select>
 
             <button
-              className="btn-analyze"
+              className={`btn-analyze${analysisStale ? ' btn-analyze-stale' : ''}`}
               disabled={holdings.length === 0}
               onClick={handleAnalyze}
             >
-              Analyze Portfolio
+              {analysisStale ? '↻ Analyse again' : 'Analyze Portfolio'}
             </button>
           </div>
         </div>
@@ -222,7 +347,7 @@ function App() {
           <>
             {/* Summary Metrics */}
             {summary && summary.holding_count > 0 && (
-              <div className="summary-strip">
+              <div className="summary-strip" ref={summaryRef}>
                 <div className="summary-item">
                   <span className="summary-label">Holdings</span>
                   <span className="summary-value">{summary.holding_count}</span>
@@ -252,7 +377,7 @@ function App() {
             )}
 
             {/* ── Loading Skeleton ──────────────────── */}
-            {aiLoading && (
+            {aiLoading ? (
               <div className="ai-hero ai-hero-loading">
                 <div className="ai-hero-header">
                   <span className="ai-hero-icon">✨</span>
@@ -267,15 +392,18 @@ function App() {
                 <div className="ai-skeleton-line" style={{ width: '70%' }} />
                 <div className="ai-skeleton-line" style={{ width: '85%' }} />
               </div>
-            )}
-
-            {/* ── AI Portfolio Analysis Hero Card ────── */}
-            {aiAnalysis && (
+            ) : aiAnalysis ? (
               <div className="ai-hero">
                 <div className="ai-hero-header">
                   <span className="ai-hero-icon">✨</span>
-                  <span className="ai-hero-title">AI Portfolio Analysis</span>
+                  <span className="ai-hero-title">Portfolio Overview</span>
                 </div>
+                {analysisStale && (
+                  <div className="ai-stale-banner">
+                    <span className="ai-stale-icon">📊</span>
+                    <span className="ai-stale-text">Portfolio updated since this analysis</span>
+                  </div>
+                )}
 
                 {/* Stat cards — key metrics at a glance */}
                 <div className="ai-stat-row">
@@ -392,12 +520,14 @@ function App() {
                   </details>
                 )}
               </div>
+            ) : null}
+            {/* Allocation Breakdown — hidden while re-analysing */}
+            {!aiLoading && (
+              <AllocationSection
+                hasHoldings={holdings.length > 0}
+                onAsk={handleAsk}
+              />
             )}
-            {/* Allocation Breakdown */}
-            <AllocationSection
-              hasHoldings={holdings.length > 0}
-              onAsk={handleAsk}
-            />
           </>
         )}
 
@@ -406,6 +536,7 @@ function App() {
           sessionId={chatSessionId}
           onSessionChange={setChatSessionId}
           initialMessage={chatInitialMessage}
+          filterAutoMessages={[ANALYSIS_PROMPT]}
         />
       </div>
     </div>

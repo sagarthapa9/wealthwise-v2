@@ -15,7 +15,7 @@ Roles:
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatMessage, ChatSession, UserMemory
@@ -140,6 +140,25 @@ class MemoryService:
             delete(ChatSession).where(ChatSession.id == session_pk)
         )
         await self.db.commit()
+
+    async def get_latest_session(self) -> SessionRecord | None:
+        """Return the most recently updated session, or None if no sessions exist."""
+        result = await self.db.execute(
+            select(ChatSession)
+            .order_by(ChatSession.updated_at.desc())
+            .limit(1)
+        )
+        session = result.scalar_one_or_none()
+        if session is None:
+            return None
+        return SessionRecord(
+            id=session.id,
+            session_id=session.session_id,
+            title=session.title,
+            prompt_name=session.prompt_name,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+        )
 
     async def list_recent_sessions(
         self,

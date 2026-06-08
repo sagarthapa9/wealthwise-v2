@@ -82,6 +82,77 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* ── No Account Prompt ──────────────────────────────────────────────── */
+
+.no-account-prompt {
+  background: #fafafa;
+  border: 1.5px dashed #d4d4d4;
+  border-radius: 14px;
+  padding: 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.no-account-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.no-account-text {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 1rem;
+}
+
+.no-account-form {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: 0.75rem;
+}
+
+.no-account-input {
+  width: 260px;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.no-account-input:focus {
+  border-color: #1a1a1a;
+}
+
+.no-account-select {
+  padding: 0.7rem 0.75rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+
+.btn-settings-link {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-settings-link:hover {
+  color: #555;
+}
+
 /* ── Ticker Entry Row ────────────────────────────────────────────────── */
 
 .ticker-entry-wrapper {
@@ -182,6 +253,30 @@ body {
 .purchase-price-input:disabled {
   background: #f9f9f9;
   color: #bbb;
+}
+
+.account-select-input {
+  width: 140px;
+  padding: 0.7rem 0.5rem;
+  border: 1.5px solid #d4d4d4;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.account-select-input:focus {
+  border-color: #1a1a1a;
+}
+
+.account-select-input:disabled {
+  background: #f9f9f9;
+  color: #bbb;
+  cursor: not-allowed;
 }
 
 .btn-add-ticker {
@@ -432,6 +527,134 @@ body {
 
 .btn-delete-row:hover {
   opacity: 0.8;
+}
+
+/* ── Account Group Cards ─────────────────────────────────────────────── */
+
+.account-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.account-group-card {
+  background: #fff;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.account-group-card:hover {
+  border-color: #d0d0d0;
+}
+
+.account-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: #fafafa;
+  border-bottom: 1.5px solid #e8e8e8;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.account-group-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.account-type-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.03em;
+}
+
+.account-type-isa {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.account-type-sipp {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.account-type-gia {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.account-type-lisa {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.account-type-other {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.account-group-provider {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1a1a1a;
+}
+
+.account-group-stats {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.ag-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.ag-stat.positive { color: #059669; }
+.ag-stat.negative { color: #dc2626; }
+
+.ag-stat-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+  font-weight: 500;
+}
+
+.ag-stat-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.account-group-card .portfolio-table {
+  margin: 0;
+}
+
+.account-group-card .portfolio-table thead th:first-child {
+  padding-left: 1rem;
+}
+
+.account-group-card .portfolio-table tbody td:first-child {
+  padding-left: 1rem;
+}
+
+.account-group-empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: #aaa;
+  font-size: 0.88rem;
 }
 
 /* ── Table Status / Empty ────────────────────────────────────────────── */
@@ -1099,6 +1322,51 @@ body {
   border-radius: 4px;
 }
 
+.pa-count {
+  display: block;
+  font-size: 0.72rem;
+  color: #aaa;
+  margin-top: 0.15rem;
+}
+
+.pa-holdings-list {
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pa-holding-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  background: #f8f8f8;
+}
+
+.pa-holding-ticker {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 0.75rem;
+}
+
+.pa-holding-value {
+  color: #555;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.panel-account-block {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.panel-account-block:last-child {
+  border-bottom: none;
+}
+
 /* ── Profile CTA ──────────────────────────────────────────────────────── */
 
 .panel-cta {
@@ -1282,15 +1550,20 @@ body {
   font-size: 1rem;
   font-weight: 700;
   color: #1a1a1a;
+  line-height: 1;
 }
 
 .chat-badge {
   font-size: 0.7rem;
   color: #2563EB;
   background: #EFF6FF;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-weight: 600;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
 }
 
 .chat-messages {
@@ -1623,6 +1896,48 @@ body {
   font-size: 1rem;
   font-weight: 700;
   color: #1a1a1a;
+}
+
+.ai-stale-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.ai-stale-icon {
+  font-size: 1rem;
+}
+
+.ai-stale-text {
+  flex: 1;
+  color: #475569;
+  font-weight: 500;
+}
+
+.btn-analyze-stale {
+  position: relative;
+}
+
+.btn-analyze-stale::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #f59e0b;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: stale-pulse 2s ease-in-out infinite;
+}
+
+@keyframes stale-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* ── Stat Cards Row ──────────────────────────────────────────────────── */

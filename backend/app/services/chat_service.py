@@ -22,7 +22,7 @@ from app.core.config import settings
 from app.services.context_builder import build_llm_context
 from app.services.system_prompt import build_system_prompt
 from app.services.guardrails import check_input
-from app.services.memory_service import MemoryService
+from app.services.memory_service import MemoryService, SessionRecord
 
 # ── Constants ────────────────────────────────────────────────────────────
 
@@ -305,6 +305,10 @@ class ChatService:
             return {"error": str(e)}
 
     # ── Session history ───────────────────────────────────────────────
+
+    async def get_latest_session(self) -> SessionRecord | None:
+        """Return the most recently updated session."""
+        return await self.memory.get_latest_session()
 
     async def get_history(self, session_id: str) -> dict | None:
         """Load full conversation history for a session."""

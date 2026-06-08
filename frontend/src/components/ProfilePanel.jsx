@@ -19,9 +19,13 @@ function hasSavedProfile(p) {
   return false;
 }
 
-function ProfilePanel({ onOpenSettings, refreshKey }) {
+function ProfilePanel({ onOpenSettings, refreshKey, holdings: allHoldings, accounts, onAccountChange }) {
+  /** Count holdings linked to a given account id */
+  function holdingCount(accountId) {
+    if (!allHoldings || !accountId) return 0;
+    return allHoldings.filter(h => h.account_id === accountId).length;
+  }
   const [profile, setProfile] = useState(null);
-  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingProfile, setEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -30,18 +34,14 @@ function ProfilePanel({ onOpenSettings, refreshKey }) {
   const [newAcct, setNewAcct] = useState({ provider: '', account_type: 'ISA', cash_balance: 0 });
 
   useEffect(() => {
-    loadData();
+    loadProfile();
   }, [refreshKey]);
 
-  async function loadData() {
+  async function loadProfile() {
     setLoading(true);
     try {
-      const [p, accts] = await Promise.all([
-        fetch('/api/v1/profile').then(r => r.json()),
-        fetch('/api/v1/accounts').then(r => r.json()),
-      ]);
+      const p = await fetch('/api/v1/profile').then(r => r.json());
       setProfile(p);
-      setAccounts(accts);
     } catch {
       // ignore
     } finally {
@@ -90,20 +90,19 @@ function ProfilePanel({ onOpenSettings, refreshKey }) {
         body: JSON.stringify(newAcct),
       });
       if (!res.ok) throw new Error('Save failed');
-      const created = await res.json();
-      setAccounts([...accounts, created]);
       setNewAcct({ provider: '', account_type: 'ISA', cash_balance: 0 });
       setNewAcctForm(false);
+      if (onAccountChange) onAccountChange();
     } catch (err) {
       alert('Failed to add account: ' + err.message);
     }
   }
 
   async function handleDeleteAccount(id) {
-    if (!confirm('Remove this account?')) return;
+    if (!confirm('This will unlink all holdings in this account. Are you sure?')) return;
     try {
       await fetch(`/api/v1/accounts/${id}`, { method: 'DELETE' });
-      setAccounts(accounts.filter(a => a.id !== id));
+      if (onAccountChange) onAccountChange();
     } catch (err) {
       alert('Failed to delete: ' + err.message);
     }
@@ -250,15 +249,33 @@ function ProfilePanel({ onOpenSettings, refreshKey }) {
 
         {accounts.length > 0 && (
           <div className="account-list">
-            {accounts.map(acct => (
-              <div key={acct.id} className="panel-account-item">
-                <div>
-                  <span className="pa-provider">{acct.provider}</span>
-                  <span className="pa-type">{acct.account_type}</span>
+            {accounts.map(acct => {
+              const acctHoldings = allHoldings ? allHoldings.filter(h => h.account_id === acct.id) : [];
+              return (
+                <div key={acct.id} className="panel-account-block">
+                  <div className="panel-account-item">
+                    <div>
+                      <span className="pa-provider">{acct.provider}</span>
+                      <span className="pa-type">{acct.account_type}</span>
+                      <span className="pa-count">{acctHoldings.length} holding{acctHoldings.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <button className="pa-delete" onClick={() => handleDeleteAccount(acct.id)} title="Remove">✕</button>
+                  </div>
+                  {acctHoldings.length > 0 && (
+                    <div className="pa-holdings-list">
+                      {acctHoldings.map(h => (
+                        <div key={h.id} className="pa-holding-row">
+                          <span className="pa-holding-ticker">{h.ticker}</span>
+                          <span className="pa-holding-value">
+                            £{(h.quantity * h.current_price).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <button className="pa-delete" onClick={() => handleDeleteAccount(acct.id)} title="Remove">✕</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

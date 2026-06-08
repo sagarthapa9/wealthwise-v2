@@ -17,7 +17,7 @@ import remarkGfm from 'remark-gfm';
  *  - onSessionChange: (sessionId) => void — called when a new session is created
  *  - initialMessage: string | null — if set, auto-sends this message on mount
  */
-function ChatPanel({ sessionId, onSessionChange, initialMessage }) {
+function ChatPanel({ sessionId, onSessionChange, initialMessage, filterAutoMessages }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,9 +28,12 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage }) {
   const inputRef = useRef(null);
   const initialSent = useRef(false);
 
-  // Scroll to bottom when new messages arrive
+  // Always scroll chat container to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = document.querySelector('.chat-messages');
+    if (container) {
+      setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+    }
   }, [messages]);
 
   // Sync sessionId from parent
@@ -54,7 +57,31 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage }) {
       const res = await fetch(`/api/v1/chat/${sid}/messages`);
       if (res.ok) {
         const data = await res.json();
-        setMessages(data.messages || []);
+        const msgs = data.messages || [];
+        // Filter out auto-generated analysis messages and their responses
+        if (filterAutoMessages && filterAutoMessages.length > 0) {
+          const filtered = [];
+          let skipNext = false;
+          for (const m of msgs) {
+            if (m.role === 'user' && filterAutoMessages.some(p => m.content?.startsWith(p))) {
+              skipNext = true;  // skip this user message and the next assistant response
+              continue;
+            }
+            if (skipNext && m.role === 'assistant') {
+              skipNext = false;
+              continue;
+            }
+            skipNext = false;
+            filtered.push(m);
+          }
+          setMessages(filtered);
+        } else {
+          setMessages(msgs);
+        }
+        // Scroll to the latest message after history loads
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        }, 100);
       }
     } catch {
       // best-effort — if history can't load, start fresh
@@ -126,13 +153,13 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage }) {
     <div className="chat-panel">
       {/* ── Header ── */}
       <div className="chat-header">
-        <h3 className="chat-title">Explore Your Portfolio</h3>
         <span className="chat-badge">
           <svg className="chat-badge-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/>
           </svg>
           AI
         </span>
+        <h3 className="chat-title">Explore Your Portfolio</h3>
       </div>
 
       {/* ── Messages ── */}

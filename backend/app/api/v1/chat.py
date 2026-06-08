@@ -16,8 +16,38 @@ from app.schemas.chat import (
     ChatMessageResponse,
 )
 from app.services.chat_service import ChatService
+from app.services.memory_service import MemoryService
 
 router = APIRouter(tags=["chat"])
+
+
+@router.get("/chat/latest")
+async def get_latest_session(
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the most recent chat session with its last assistant message.
+
+    Used to restore the hero card and chat panel when the user returns.
+    Returns null if no sessions exist yet.
+    """
+    service = ChatService(db)
+    session = await service.get_latest_session()
+    if session is None:
+        return {"session_id": None, "message": None, "reasoning_content": None}
+
+    # Get the last assistant message for the hero card
+    messages = await service.memory.get_conversation(session.id, limit=5)
+    last_assistant = None
+    for msg in messages:
+        if msg.role == "assistant" and msg.content:
+            last_assistant = msg
+
+    return {
+        "session_id": session.session_id,
+        "message": last_assistant.content if last_assistant else None,
+        "reasoning_content": last_assistant.reasoning_content if last_assistant else None,
+        "generated_at": last_assistant.created_at.isoformat() if last_assistant else None,
+    }
 
 
 @router.post("/chat", response_model=ChatResponse)
