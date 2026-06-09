@@ -18,6 +18,7 @@ import remarkGfm from 'remark-gfm';
  *  - initialMessage: string | null — if set, auto-sends this message on mount
  */
 function ChatPanel({ sessionId, onSessionChange, initialMessage, filterAutoMessages }) {
+  const [showInfoTip, setShowInfoTip] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -149,6 +150,18 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage, filterAutoMessa
     setExpandedReasoning(expandedReasoning === index ? null : index);
   }
 
+  async function handleClear() {
+    if (!currentSessionId || !confirm('Clear this conversation? It will be archived as a summary.')) return;
+    try {
+      const res = await fetch(`/api/v1/chat/${currentSessionId}/clear`, { method: 'POST' });
+      if (res.ok) {
+        setMessages([]);
+      }
+    } catch {
+      // best-effort
+    }
+  }
+
   return (
     <div className="chat-panel">
       {/* ── Header ── */}
@@ -160,6 +173,23 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage, filterAutoMessa
           AI
         </span>
         <h3 className="chat-title">Explore Your Portfolio</h3>
+        <div className="chat-info-wrap">
+          <div className="chat-info-trigger">
+            <svg className="chat-info-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
+            </svg>
+            <div className="chat-info-tip">
+              <strong>Personalised to your portfolio</strong>
+              <p>Responses are tailored using your holdings, accounts, and investor profile. Every answer references your actual numbers — no generic advice.</p>
+              <p>Ask about diversification, costs, tax efficiency, or any holding in your portfolio.</p>
+            </div>
+          </div>
+        </div>
+        {messages.length > 0 && (
+          <button className="chat-clear-btn" onClick={handleClear} title="Clear conversation">🗑️</button>
+        )}
       </div>
 
       {/* ── Messages ── */}

@@ -3,6 +3,8 @@
 Endpoints:
   - ``POST /api/v1/chat`` — Send a message and get an LLM response
   - ``GET /api/v1/chat/{session_id}/messages`` — Load conversation history
+  - ``GET /api/v1/chat/latest`` — Get the most recent session for restoration
+  - ``POST /api/v1/chat/{session_id}/clear`` — Clear messages with smart archiving
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -97,3 +99,18 @@ async def get_chat_history(
             ChatMessageResponse(**m) for m in history["messages"]
         ],
     )
+
+
+@router.post("/chat/{session_id}/clear")
+async def clear_chat_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Clear messages for a session and archive a summary.
+
+    Before deleting, the conversation is summarised via LLM and stored
+    on the session record for future reference.
+    """
+    service = ChatService(db)
+    summary = await service.clear_and_summarize(session_id)
+    return {"session_id": session_id, "summary": summary}

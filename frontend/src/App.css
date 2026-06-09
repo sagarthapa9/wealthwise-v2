@@ -1553,6 +1553,79 @@ body {
   line-height: 1;
 }
 
+.chat-info-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: -0.2rem;
+}
+
+.chat-info-trigger {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.chat-info-icon {
+  width: 14px;
+  height: 14px;
+  color: #999;
+  transition: color 0.15s;
+  display: block;
+}
+
+.chat-info-trigger:hover .chat-info-icon {
+  color: #555;
+}
+
+.chat-info-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  width: 280px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #333;
+}
+
+.chat-info-tip strong {
+  display: block;
+  font-size: 0.88rem;
+  color: #1a1a1a;
+  margin-bottom: 0.4rem;
+}
+
+.chat-info-tip p {
+  margin: 0.4rem 0;
+}
+
+.chat-info-trigger:hover .chat-info-tip {
+  display: block;
+}
+
+.chat-clear-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0.3;
+  padding: 0.2rem;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.chat-clear-btn:hover {
+  opacity: 0.7;
+}
+
 .chat-badge {
   font-size: 0.7rem;
   color: #2563EB;
@@ -1896,6 +1969,13 @@ body {
   font-size: 1rem;
   font-weight: 700;
   color: #1a1a1a;
+}
+
+.hero-info-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: -0.1rem;
 }
 
 .ai-stale-banner {

@@ -397,6 +397,20 @@ function App() {
                 <div className="ai-hero-header">
                   <span className="ai-hero-icon">✨</span>
                   <span className="ai-hero-title">Portfolio Overview</span>
+                  <div className="hero-info-wrap">
+                    <div className="chat-info-trigger">
+                      <svg className="chat-info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 16v-4"/>
+                        <path d="M12 8h.01"/>
+                      </svg>
+                      <div className="chat-info-tip">
+                        <strong>Powered by your portfolio data</strong>
+                        <p>This analysis is generated from your actual holdings, accounts, and investor profile. Every insight references your specific numbers.</p>
+                        <p>Add or update holdings, then click "Analyse again" for a fresh overview.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 {analysisStale && (
                   <div className="ai-stale-banner">

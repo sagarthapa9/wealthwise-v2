@@ -310,6 +310,47 @@ class ChatService:
         """Return the most recently updated session."""
         return await self.memory.get_latest_session()
 
+    async def clear_and_summarize(self, session_id: str) -> str | None:
+        """Clear messages for a session and archive a summary.
+
+        Uses a lightweight LLM call to summarise the conversation before
+        deleting messages. The summary is stored on the session record.
+        Returns the summary text, or None if the session doesn't exist.
+        """
+        session = await self.memory.get_or_create_session(session_id=session_id)
+        messages = await self.memory.get_conversation(session_pk=session.id, limit=100)
+
+        if not messages:
+            return None
+
+        # Build conversation text for summarization
+        conversation_text = ""
+        for msg in reversed(messages):
+            role_label = "User" if msg.role == "user" else "Assistant"
+            if msg.content:
+                conversation_text += f"{role_label}: {msg.content[:500]}\n\n"
+
+        # Summarize using a lightweight LLM call
+        summary = None
+        if conversation_text.strip():
+            try:
+                client = _get_client()
+                resp = await client.chat.completions.create(
+                    model=settings.deepseek_model,
+                    messages=[
+                        {"role": "system", "content": "Summarise this investment conversation in 2-3 sentences. Focus on what the user asked about and key insights."},
+                        {"role": "user", "content": conversation_text},
+                    ],
+                    max_tokens=200,
+                )
+                summary = resp.choices[0].message.content
+            except Exception:
+                summary = "Conversation archived."
+
+        # Store summary and clear messages
+        await self.memory.archive_session(session_pk=session.id, summary=summary)
+        return summary
+
     async def get_history(self, session_id: str) -> dict | None:
         """Load full conversation history for a session."""
         session = await self.memory.get_or_create_session(session_id=session_id)

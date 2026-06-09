@@ -120,24 +120,39 @@ class MemoryService:
         self,
         session_pk: int,
         limit: int = 50,
+        include_archived: bool = False,
     ) -> list[ChatMessage]:
         """Load the most recent messages for a session, newest first.
 
         The caller should reverse this list if chronological order is needed.
         Use ``limit`` to bound the result size (sliding window).
+        By default, archived (soft-deleted) messages are excluded.
         """
-        result = await self.db.execute(
-            select(ChatMessage)
-            .where(ChatMessage.session_id == session_pk)
-            .order_by(ChatMessage.created_at.desc())
-            .limit(limit)
-        )
+        query = select(ChatMessage).where(ChatMessage.session_id == session_pk)
+        if not include_archived:
+            query = query.where(ChatMessage.archived == False)  # noqa: E712
+        query = query.order_by(ChatMessage.created_at.desc()).limit(limit)
+        result = await self.db.execute(query)
         return list(result.scalars().all())
 
     async def delete_conversation(self, session_pk: int) -> None:
         """Delete a session and all its messages (CASCADE)."""
         await self.db.execute(
             delete(ChatSession).where(ChatSession.id == session_pk)
+        )
+        await self.db.commit()
+
+    async def archive_session(self, session_pk: int, summary: str | None) -> None:
+        """Store summary on a session and soft-delete its messages."""
+        await self.db.execute(
+            update(ChatSession)
+            .where(ChatSession.id == session_pk)
+            .values(summary=summary)
+        )
+        await self.db.execute(
+            update(ChatMessage)
+            .where(ChatMessage.session_id == session_pk)
+            .values(archived=True)
         )
         await self.db.commit()
 
