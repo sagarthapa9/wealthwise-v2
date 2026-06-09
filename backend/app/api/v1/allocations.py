@@ -78,6 +78,7 @@ async def get_allocations(
                 "prompt": "Ask: Analyse my portfolio",
                 "ai_question": "I haven't added any holdings yet. Can you help me understand how to build a diversified portfolio?",
                 "severity": "info",
+                "tooltip": "Your portfolio is empty. Add holdings using the search bar above, then revisit this section for a detailed allocation breakdown.",
             },
         }
 
@@ -169,6 +170,7 @@ async def get_allocations(
             "prompt": hook.prompt,
             "ai_question": hook.ai_question,
             "severity": hook.severity,
+            "tooltip": hook.tooltip,
         },
     }
 

@@ -913,55 +913,180 @@ body {
 
 /* ── Hook Insight Card ────────────────────────────────────────────────── */
 
-.hook-card {
+/* ── Severity Insight Card ─────────────────────────────────────────────── */
+
+.si-stack {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border-radius: 10px;
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
   margin-top: 0.5rem;
 }
 
-.hook-body {
+.si-card {
+  border-radius: 12px;
+  border: 1px solid;
+  padding: 0.85rem 1rem;
+}
+
+.si-header {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  min-width: 0;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
 }
 
-.hook-icon {
-  font-size: 1rem;
-  flex-shrink: 0;
+.si-title {
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
-.hook-text {
-  font-size: 0.84rem;
-  color: #555;
+.si-info-icon {
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  color: inherit;
+}
+
+.si-info-icon:hover {
+  opacity: 0.75;
+}
+
+.si-info-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* Invisible bridge from icon to tooltip — keeps hover alive */
+.si-info-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 280px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.si-info-wrap:hover::after {
+  pointer-events: auto;
+}
+
+.si-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 50;
+  width: 260px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  border-left: 4px solid;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.si-info-wrap:hover .si-tooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.si-tip-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.2rem;
+}
+
+.si-tip-body {
+  font-size: 0.76rem;
+  color: #666;
+  line-height: 1.5;
+}
+
+.si-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.si-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex-wrap: wrap;
   line-height: 1.4;
 }
 
-.hook-ask-btn {
-  flex-shrink: 0;
-  padding: 0.4rem 1rem;
+.si-row-ticker {
+  font-weight: 600;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.si-row-text {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.si-row-val {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.si-ask-btn {
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.8rem;
   background: none;
   border: 1.5px solid #d4d4d4;
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: #555;
   cursor: pointer;
   transition: all 0.15s;
   font-family: inherit;
-  white-space: nowrap;
 }
 
-.hook-ask-btn:hover {
+.si-ask-btn:hover {
   border-color: #1a1a1a;
   color: #1a1a1a;
 }
+
+/* ── Severity colour variants ────────────────────────────────────────── */
+
+.si-border-warning { border-color: #fbbf24; }
+.si-bg-warning     { background: #fffbeb; }
+.si-title-warning  { color: #92400e; }
+.si-ticker-warning { color: #92400e; }
+.si-muted-warning  { color: #d97706; }
+.si-tip-border-warning { border-left-color: #fbbf24; }
+
+.si-border-danger  { border-color: #f87171; }
+.si-bg-danger      { background: #fef2f2; }
+.si-title-danger   { color: #991b1b; }
+.si-ticker-danger  { color: #991b1b; }
+.si-muted-danger   { color: #dc2626; }
+.si-tip-border-danger { border-left-color: #f87171; }
+
+.si-border-info    { border-color: #60a5fa; }
+.si-bg-info        { background: #eff6ff; }
+.si-title-info     { color: #1e40af; }
+.si-ticker-info    { color: #1e40af; }
+.si-muted-info     { color: #3b82f6; }
+.si-tip-border-info { border-left-color: #60a5fa; }
+
+.si-border-success { border-color: #4ade80; }
+.si-bg-success     { background: #f0fdf4; }
+.si-title-success  { color: #166534; }
+.si-ticker-success { color: #166534; }
+.si-muted-success  { color: #22c55e; }
+.si-tip-border-success { border-left-color: #4ade80; }
 
 /* ── Settings Modal ────────────────────────────────────────────────────── */
 
@@ -1561,9 +1686,24 @@ body {
 }
 
 .chat-info-trigger {
+  position: relative;
   display: flex;
   align-items: center;
   cursor: pointer;
+}
+
+.chat-info-trigger::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 280px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.chat-info-trigger:hover::after {
+  pointer-events: auto;
 }
 
 .chat-info-icon {
@@ -1579,20 +1719,23 @@ body {
 }
 
 .chat-info-tip {
-  display: none;
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   left: 0;
   z-index: 100;
   width: 280px;
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 12px;
-  padding: 1rem 1.1rem;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  padding: 0.85rem 1rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
   font-size: 0.82rem;
   line-height: 1.5;
   color: #333;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .chat-info-tip strong {
@@ -1607,7 +1750,9 @@ body {
 }
 
 .chat-info-trigger:hover .chat-info-tip {
-  display: block;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .chat-clear-btn {

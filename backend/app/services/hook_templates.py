@@ -16,6 +16,7 @@ class HookTemplate:
     prompt: str
     ai_question: str
     severity: Literal["info", "warning", "action"]
+    tooltip: str = ""
 
 
 def select_hook_template(
@@ -51,6 +52,7 @@ def _asset_class_hook(allocations: list[AllocationRow], p: PersonalContext) -> H
             prompt="Ask: Is my risk level right for my age?",
             ai_question=f"I'm {p.age} with a {p.risk_tolerance} risk tolerance and a {p.investment_horizon} horizon. My portfolio is {equity_pct}% equities. Is this appropriate for my situation? What should I consider changing?",
             severity="warning",
+            tooltip=f"An equity allocation of {equity_pct}% is above what's typically recommended for a {p.risk_tolerance} risk profile, which targets around 60%. At age {p.age} with a {p.investment_horizon} horizon, a market correction could have a larger impact than anticipated.",
         )
     elif equity_pct < 30:
         return HookTemplate(
@@ -58,6 +60,7 @@ def _asset_class_hook(allocations: list[AllocationRow], p: PersonalContext) -> H
             prompt="Ask: Am I too conservative?",
             ai_question=f"I'm {p.age} with a {p.investment_horizon} timeline and only {equity_pct}% in equities. Am I being too conservative? What's the growth risk I'm taking?",
             severity="info",
+            tooltip=f"With only {equity_pct}% in equities, your portfolio may not keep pace with inflation over your {p.investment_horizon} horizon. At age {p.age}, a higher equity allocation could improve long-term growth potential.",
         )
     else:
         return HookTemplate(
@@ -65,6 +68,7 @@ def _asset_class_hook(allocations: list[AllocationRow], p: PersonalContext) -> H
             prompt="Ask: How should I rebalance?",
             ai_question=f"My portfolio is {equity_pct}% equities, {fixed_pct}% fixed income. How should I think about rebalancing? What's a good target allocation for someone my age?",
             severity="info",
+            tooltip=f"Your equity allocation of {equity_pct}% falls within the typical range for a {p.risk_tolerance} risk profile. Regular rebalancing helps maintain this alignment as markets move.",
         )
 
 
@@ -80,6 +84,7 @@ def _sector_hook(allocations: list[AllocationRow], data: PortfolioData) -> HookT
             prompt="Ask: Stress-test this concentration",
             ai_question=f"What happens to my portfolio if {top.label} drops 30%? I have {top.percentage}% of my portfolio in this sector.",
             severity="warning",
+            tooltip=f"{top.label} represents over a third of your portfolio at {top.percentage}%. Sector-specific downturns could have an outsized impact. Consider spreading across more sectors to reduce concentration risk.",
         )
 
     # Check for any single holding > 15%
@@ -91,6 +96,7 @@ def _sector_hook(allocations: list[AllocationRow], data: PortfolioData) -> HookT
                 prompt="Ask: Analyse this holding",
                 ai_question=f"Tell me about {h.name} — what are the key risks of having {round(h_pct, 1)}% of my portfolio in a single holding?",
                 severity="action",
+                tooltip=f"A single holding makes up {round(h_pct, 1)}% of your portfolio. If this specific fund or stock underperforms, it directly impacts your overall returns more than any other position.",
             )
 
     # Otherwise: diversified
@@ -101,6 +107,7 @@ def _sector_hook(allocations: list[AllocationRow], data: PortfolioData) -> HookT
         prompt="Ask: Any sector gaps?",
         ai_question="Looking at my sector allocation, what sectors am I underweight in? Are there any gaps I should consider?",
         severity="info",
+        tooltip=f"Your largest sector ({top_sector}) is only {top_pct}% of your portfolio, indicating good diversification. No single sector dominates, which helps reduce sector-specific risk.",
     )
 
 
@@ -116,6 +123,7 @@ def _geography_hook(allocations: list[AllocationRow], p: PersonalContext) -> Hoo
             prompt="Ask: Geographic risk check",
             ai_question=f"I'm {top.percentage}% exposed to {top.label}. What are the single-market risks I should be aware of? Should I diversify geographically?",
             severity="warning",
+            tooltip=f"Over half your portfolio ({top.percentage}%) is tied to {top.label}. Regional economic downturns, currency fluctuations, or regulatory changes in this market could significantly affect your returns.",
         )
 
     # UK < 20% for UK investor
@@ -127,6 +135,7 @@ def _geography_hook(allocations: list[AllocationRow], p: PersonalContext) -> Hoo
             prompt="Ask: UK exposure check",
             ai_question=f"I have only {uk_pct}% in UK assets. Is this too low for a UK-based investor? What are the pros and cons of more home bias?",
             severity="info",
+            tooltip=f"With only {uk_pct}% in UK assets, your portfolio has limited home bias. This is common for globally-diversified portfolios but means currency risk and less exposure to UK-specific growth like dividend tax changes or GBP fluctuations.",
         )
 
     # Otherwise
@@ -138,6 +147,7 @@ def _geography_hook(allocations: list[AllocationRow], p: PersonalContext) -> Hoo
         prompt="Ask: Optimal geographic mix?",
         ai_question=f"What's an optimal geographic allocation for a UK-based investor with a {p.investment_horizon} horizon? How does my current mix compare?",
         severity="info",
+        tooltip=f"Your portfolio spans {geo_count} geographic regions, with {top_geo} as the largest at {top_pct}%. Multi-region diversification helps reduce country-specific risk.",
     )
 
 
@@ -147,4 +157,5 @@ def _generic_hook(p: PersonalContext) -> HookTemplate:
         prompt="Ask: Review my portfolio",
         ai_question=f"I'm {p.age} years old with a {p.risk_tolerance} risk tolerance. Can you review my overall portfolio allocation and suggest improvements?",
         severity="info",
+        tooltip="You can explore detailed breakdowns by asset class, sector, or geography using the tabs above. Each tab shows how your portfolio is allocated and highlights any areas worth reviewing.",
     )
