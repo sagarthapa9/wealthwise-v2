@@ -188,7 +188,7 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage, filterAutoMessa
           </div>
         </div>
         {messages.length > 0 && (
-          <button className="chat-clear-btn" onClick={handleClear} title="Clear conversation">🗑️</button>
+          <button className="chat-clear-btn" onClick={handleClear} title="Clear conversation">Clear messages</button>
         )}
       </div>
 

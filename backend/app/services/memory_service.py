@@ -130,7 +130,9 @@ class MemoryService:
         """
         query = select(ChatMessage).where(ChatMessage.session_id == session_pk)
         if not include_archived:
-            query = query.where(ChatMessage.archived == False)  # noqa: E712
+            query = query.where(
+                (ChatMessage.archived == False) | (ChatMessage.archived == None)  # noqa: E712
+            )
         query = query.order_by(ChatMessage.created_at.desc()).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
