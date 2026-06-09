@@ -39,9 +39,11 @@ function HookInsightCard({ hook, sections, onAsk }) {
         <div className="si-row">
           <span className="si-row-text">{hook.insight}</span>
         </div>
+        {/* Ask AI button — temporarily hidden
         {onAsk && hook.ai_question && (
           <button className="si-ask-btn" onClick={() => onAsk(hook.ai_question)}>Ask AI</button>
         )}
+        */}
       </div>
     );
   }

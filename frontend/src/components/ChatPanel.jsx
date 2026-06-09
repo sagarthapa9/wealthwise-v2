@@ -79,9 +79,10 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage, filterAutoMessa
         } else {
           setMessages(msgs);
         }
-        // Scroll to the latest message after history loads
+        // Scroll to latest message on load
         setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+          const container = document.querySelector('.chat-messages');
+          if (container) container.scrollTop = container.scrollHeight;
         }, 100);
       }
     } catch {
@@ -151,7 +152,7 @@ function ChatPanel({ sessionId, onSessionChange, initialMessage, filterAutoMessa
   }
 
   async function handleClear() {
-    if (!currentSessionId || !confirm('Clear this conversation? It will be archived as a summary.')) return;
+    if (!currentSessionId || !confirm('Clear this conversation?')) return;
     try {
       const res = await fetch(`/api/v1/chat/${currentSessionId}/clear`, { method: 'POST' });
       if (res.ok) {

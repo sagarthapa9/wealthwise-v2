@@ -334,10 +334,19 @@ function App() {
 
             <button
               className={`btn-analyze${analysisStale ? ' btn-analyze-stale' : ''}`}
-              disabled={holdings.length === 0}
+              disabled={holdings.length === 0 || aiLoading}
               onClick={handleAnalyze}
             >
-              {analysisStale ? '↻ Analyse again' : 'Analyze Portfolio'}
+              {aiLoading ? (
+                <>
+                  <span className="btn-spinner" />
+                  Analysing...
+                </>
+              ) : analysisStale ? (
+                '↻ Analyse again'
+              ) : (
+                'Analyze Portfolio'
+              )}
             </button>
           </div>
         </div>
