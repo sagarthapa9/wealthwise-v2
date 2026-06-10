@@ -24,6 +24,7 @@ import yfinance as yf
 from app.services.classification import (
     DEFAULT_ASSET_CLASS,
     DEFAULT_GEOGRAPHY,
+    DEFAULT_SECTOR,
     map_asset_class,
     map_geography,
     map_sector,
