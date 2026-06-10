@@ -167,7 +167,7 @@ class EODHDProvider(TickerProvider):
     then ``.US`` as a fallback.
     """
 
-    BASE_URL = "https://eodhd.com/api"
+    BASE_URL = "https://eodhd.com/api/v1.1"
 
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
