@@ -161,13 +161,13 @@ class YFinanceProvider(TickerProvider):
 # ── EODHD implementation ───────────────────────────────────────────────
 
 class EODHDProvider(TickerProvider):
-    """Ticker provider backed by the EODHD Fundamentals API.
+    """Ticker provider backed by EODHD search + EOD price APIs.
 
-    Tries the symbol with ``.LSE`` suffix first (London Stock Exchange),
-    then ``.US`` as a fallback.
+    Free-tier compatible: uses ``/api/search`` for metadata (name, type)
+    and ``/api/eod`` for the latest closing price.
     """
 
-    BASE_URL = "https://eodhd.com/api/v1.1"
+    BASE = "https://eodhd.com/api"
 
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
@@ -175,152 +175,98 @@ class EODHDProvider(TickerProvider):
     async def lookup(self, symbol: str) -> TickerData:
         symbol = symbol.upper().strip()
         clean = symbol.replace(".LSE", "").replace(".L", "").replace(".IL", "").replace(".US", "")
-
         candidates = [symbol, clean, f"{clean}.L", f"{clean}.LSE", f"{clean}.US"]
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        candidates = [c for c in candidates if not (c in seen or seen.add(c))]
 
         async with httpx.AsyncClient(timeout=15) as client:
             for candidate in candidates:
-                data = await self._fetch_fundamentals(client, candidate)
-                if data is None:
+                meta = await self._fetch_meta(client, candidate)
+                if meta is None:
                     continue
-
-                general = data.get("General") or {}
-                highlights = data.get("Highlights") or {}
-                etf_data = data.get("ETFData") or {}
-
-                name = general.get("Name") or ""
+                name = meta.get("Name") or ""
+                raw_type = (meta.get("Type") or "").strip()
+                exchange = (meta.get("Exchange") or "").strip()
                 if not name:
                     continue
 
-                raw_type = (general.get("Type") or "").strip()
-                sector_raw = (general.get("Sector") or "").strip()
-                industry_raw = (general.get("Industry") or "").strip()
-                country_iso = (general.get("CountryISO") or "").strip()
-                currency = (general.get("CurrencyCode") or "GBP").strip()
-                isin = (general.get("ISIN") or "").strip()
-
-                price = highlights.get("PreviousClose") or 0.0
-                if isinstance(price, str):
-                    try:
-                        price = float(price)
-                    except (ValueError, TypeError):
-                        price = 0.0
+                # Fetch price from EOD endpoint
+                price = await self._fetch_price(client, candidate)
 
                 # Map to spec values
                 mapped_type = map_type(raw_type)
-                mapped_geography = self._map_geography(country_iso)
 
-                # Use sector from EODHD as the primary sector signal
-                sector_for_map = sector_raw or industry_raw
-                mapped_sector = map_sector(sector_for_map)
-
-                # Infer asset class from type + sector context
-                mapped_asset_class = self._infer_asset_class(raw_type, sector_raw, industry_raw)
-
-                # OCF: ETFData first, then Highlights
-                ocf_raw = (
-                    etf_data.get("TotalExpenseRatio")
-                    or etf_data.get("ExpenseRatio")
-                    or highlights.get("ExpenseRatio")
-                )
-                try:
-                    ocf_pct = round(float(ocf_raw) * 100, 4) if ocf_raw else None
-                except (ValueError, TypeError):
-                    ocf_pct = None
-
-                # Dividend yield (EODHD stores as decimal, e.g. 0.0152)
-                div_raw = highlights.get("DividendYield")
-                try:
-                    dividend_yield_pct = round(float(div_raw) * 100, 2) if div_raw else None
-                except (ValueError, TypeError):
-                    dividend_yield_pct = None
+                # Infer geography from exchange
+                mapped_geography = self._exchange_to_geography(exchange)
 
                 return TickerData(
                     ticker=clean,
                     name=name,
                     price=price,
-                    currency=currency or "GBP",
+                    currency="GBP",                  # best guess without fundamentals
                     type=mapped_type,
-                    asset_class=mapped_asset_class,
-                    sector=mapped_sector,
+                    asset_class=DEFAULT_ASSET_CLASS,  # can't infer without sector/industry
+                    sector=DEFAULT_SECTOR,
                     geography=mapped_geography,
-                    ocf_pct=ocf_pct,
-                    dividend_yield_pct=dividend_yield_pct,
-                    isin=isin or None,
+                    ocf_pct=None,                    # not available on free tier
+                    dividend_yield_pct=None,
+                    isin=None,
                 )
-
         raise TickerNotFoundError(f"Could not fetch data for ticker '{symbol}'")
 
-    async def _fetch_fundamentals(self, client: httpx.AsyncClient, candidate: str) -> dict | None:
-        """Call the EODHD Fundamentals endpoint and return the JSON body, or None."""
+    async def _fetch_meta(self, client: httpx.AsyncClient, candidate: str) -> dict | None:
+        """Search EODHD for a symbol and return the first match's metadata."""
         try:
             resp = await client.get(
-                f"{self.BASE_URL}/fundamentals/{candidate}",
-                params={"api_token": self.api_key, "fmt": "json"},
+                f"{self.BASE}/search/{candidate}",
+                params={"api_token": self.api_key, "fmt": "json", "limit": 1},
             )
-            # Debug: log the response status for troubleshooting
             if resp.status_code != 200:
-                print(f"[EODHD] {candidate} → {resp.status_code} {resp.text[:200]}")
+                print(f"[EODHD] search {candidate} → {resp.status_code}")
                 return None
             data = resp.json()
-            # EODHD returns empty dict or error JSON on miss
-            if not data or not isinstance(data, dict):
-                return None
-            # The "General" key is the primary signal — missing means invalid ticker
-            if "General" not in data:
-                return None
-            return data
-        except httpx.TimeoutException:
-            return None
-        except httpx.RequestError:
-            return None
-        except ValueError:  # JSON decode error
+            if isinstance(data, list) and len(data) > 0:
+                return data[0]
             return None
         except Exception:
             return None
 
-    @staticmethod
-    def _map_geography(country_iso: str) -> str:
-        """Map EODHD CountryISO code to a spec geography value."""
-        if not country_iso:
-            return DEFAULT_GEOGRAPHY
-        return map_geography(country_iso)
+    async def _fetch_price(self, client: httpx.AsyncClient, symbol: str) -> float:
+        """Fetch the latest closing price from the EOD endpoint."""
+        try:
+            resp = await client.get(
+                f"{self.BASE}/eod/{symbol}",
+                params={"api_token": self.api_key, "fmt": "json", "limit": 1},
+            )
+            if resp.status_code != 200:
+                print(f"[EODHD] eod {symbol} → {resp.status_code}")
+                return 0.0
+            data = resp.json()
+            if isinstance(data, list) and len(data) > 0:
+                close = data[0].get("close", 0.0) or 0.0
+                return float(close)
+            return 0.0
+        except Exception:
+            return 0.0
 
     @staticmethod
-    def _infer_asset_class(raw_type: str, sector: str, industry: str) -> str:
-        """Infer asset class from EODHD type + sector + industry context."""
-        t = raw_type.upper().strip()
-
-        # Direct type-based classification
-        if t == "BOND" or t == "GOVERNMENT BOND" or t == "CORPORATE BOND" or t == "CONVERTIBLE BOND" or t == "MONEY MARKET":
-            if t == "MONEY MARKET":
-                return "cash"
-            return "fixed_income"
-        if t == "REIT":
-            return "property"
-
-        context = (sector + " " + industry).lower()
-
-        if any(kw in context for kw in ("bond", "fixed income", "gilt", "treasury")):
-            return "fixed_income"
-        if any(kw in context for kw in ("money market", "cash")) and "cash flow" not in context:
-            return "cash"
-        if any(kw in context for kw in ("real estate", "property", "reit")) and t != "COMMON STOCK":
-            return "property"
-        if any(kw in context for kw in ("commodity", "commodities", "precious metal")):
-            return "alternative"
-        if any(kw in context for kw in ("infrastructure", "private equity", "hedge fund")):
-            return "alternative"
-
-        # Stocks default to equity
-        if t in ("COMMON STOCK", "ORDINARY SHARES"):
-            return "equity"
-
-        # For ETFs / funds, check if sector context suggests equity
-        if any(kw in context for kw in ("equity", "equities", "global", "diversified")):
-            return "equity"
-
-        return DEFAULT_ASSET_CLASS
+    def _exchange_to_geography(exchange: str) -> str:
+        """Map an exchange code to a geography value."""
+        m = {
+            "LSE": "uk",
+            "L": "uk",
+            "US": "us",
+            "NASDAQ": "us",
+            "NYSE": "us",
+            "HKEX": "asia_pacific",
+            "ASX": "asia_pacific",
+            "TSE": "asia_pacific",
+            "EURONEXT": "europe",
+            "XETRA": "europe",
+            "SWX": "europe",
+        }
+        return m.get(exchange.upper().strip(), DEFAULT_GEOGRAPHY)
 
 
 # ── Factory ──────────────────────────────────────────────────────────────
