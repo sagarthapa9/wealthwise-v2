@@ -174,9 +174,9 @@ class EODHDProvider(TickerProvider):
 
     async def lookup(self, symbol: str) -> TickerData:
         symbol = symbol.upper().strip()
-        clean = symbol.replace(".LSE", "").replace(".L", "").replace(".US", "")
+        clean = symbol.replace(".LSE", "").replace(".L", "").replace(".IL", "").replace(".US", "")
 
-        candidates = [f"{clean}.LSE", f"{clean}.US"]
+        candidates = [clean, f"{clean}.L", f"{clean}.LSE", f"{clean}.US"]
 
         async with httpx.AsyncClient(timeout=15) as client:
             for candidate in candidates:
