@@ -89,7 +89,8 @@ function TickerSearch({ onAdd, accounts }) {
     setFetchingDetails(true);
 
     try {
-      const res = await fetch(`/api/v1/ticker/${r.code}`);
+      const symbol = r.exchange ? `${r.code}.${r.exchange}` : r.code;
+      const res = await fetch(`/api/v1/ticker/${symbol}`);
       if (res.ok) {
         const data = await res.json();
         console.log('[TickerSearch] ticker detail:', data);

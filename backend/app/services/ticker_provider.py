@@ -176,7 +176,7 @@ class EODHDProvider(TickerProvider):
         symbol = symbol.upper().strip()
         clean = symbol.replace(".LSE", "").replace(".L", "").replace(".IL", "").replace(".US", "")
 
-        candidates = [clean, f"{clean}.L", f"{clean}.LSE", f"{clean}.US"]
+        candidates = [symbol, clean, f"{clean}.L", f"{clean}.LSE", f"{clean}.US"]
 
         async with httpx.AsyncClient(timeout=15) as client:
             for candidate in candidates:
