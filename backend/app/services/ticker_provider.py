@@ -168,6 +168,7 @@ class EODHDProvider(TickerProvider):
     """
 
     BASE = "https://eodhd.com/api"
+    BASE_V11 = "https://eodhd.com/api/v1.1"
 
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
@@ -236,7 +237,7 @@ class EODHDProvider(TickerProvider):
         """Fetch the latest closing price from the EOD endpoint."""
         try:
             resp = await client.get(
-                f"{self.BASE}/eod/{symbol}",
+                f"{self.BASE_V11}/eod/{symbol}",
                 params={"api_token": self.api_key, "fmt": "json", "limit": 1},
             )
             if resp.status_code != 200:
