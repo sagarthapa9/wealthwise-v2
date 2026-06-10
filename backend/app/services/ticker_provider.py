@@ -256,12 +256,11 @@ class EODHDProvider(TickerProvider):
         try:
             resp = await client.get(
                 f"{self.BASE_URL}/fundamentals/{candidate}",
-                params={"api_token": self.api_key},
+                params={"api_token": self.api_key, "fmt": "json"},
             )
-            if resp.status_code == 404:
-                return None
-            # Rate limit / auth errors
+            # Debug: log the response status for troubleshooting
             if resp.status_code != 200:
+                print(f"[EODHD] {candidate} → {resp.status_code} {resp.text[:200]}")
                 return None
             data = resp.json()
             # EODHD returns empty dict or error JSON on miss
@@ -340,7 +339,7 @@ def get_ticker_provider() -> TickerProvider:
         from app.core.config import settings
 
         if settings.eodhd_api_key:
-            _PROVIDER_INSTANCE = EODHDProvider(api_key=settings.eodhd_api_key)
+            _PROVIDER_INSTANCE = EODHDProvider(api_key=settings.eodhd_api_key.strip())
         else:
             _PROVIDER_INSTANCE = YFinanceProvider()
     return _PROVIDER_INSTANCE
