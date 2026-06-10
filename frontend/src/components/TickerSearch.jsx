@@ -4,10 +4,9 @@ import { useState, useRef, useEffect } from 'react';
  * TickerSearch — search input with autocomplete dropdown + shares + purchase price + account selector.
  *
  * Flow:
- *   User types ticker → autocomplete shows matching results (with classification data)
- *   User clicks result → fills name, price, and metadata
- *   User selects account (optional)
- *   User enters shares + optional purchase price → clicks "+" to add
+ *   User types ticker → autocomplete shows matching results via /api/v1/ticker/search
+ *   User clicks result → fetches full details via /api/v1/ticker/{code}
+ *   User selects account, enters shares + optional purchase price → clicks "+" to add
  */
 function TickerSearch({ onAdd, accounts }) {
   const [query, setQuery] = useState('');
@@ -16,10 +15,13 @@ function TickerSearch({ onAdd, accounts }) {
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [results, setResults] = useState(null);   // null = no search yet
   const [loading, setLoading] = useState(false);
+  const [fetchingDetails, setFetchingDetails] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchError, setSearchError] = useState(null);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const debounceRef = useRef(null);
 
   // Close dropdown when user clicks outside
   useEffect(() => {
@@ -36,28 +38,63 @@ function TickerSearch({ onAdd, accounts }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  /** Search for ticker */
+  /** Search for tickers via EODHD search endpoint */
   async function handleSearch(val) {
-    const q = val.trim().toUpperCase();
+    const q = val.trim();
     setQuery(val);
     setSelectedResult(null);
     setPurchasePrice('');
+    setSearchError(null);
 
-    if (!q) {
+    if (!q || q.length < 1) {
       setResults(null);
       setShowDropdown(false);
       return;
     }
 
-    setLoading(true);
-    setShowDropdown(true);
+    // Debounce: wait 200ms after user stops typing
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      setShowDropdown(true);
+
+      try {
+        const res = await fetch(`/api/v1/ticker/search?q=${encodeURIComponent(q)}&limit=8`);
+        if (res.status === 501) {
+          setSearchError('Search requires EODHD_API_KEY');
+          setResults([]);
+          return;
+        }
+        if (res.ok) {
+          const data = await res.json();
+          console.log('[TickerSearch] search results:', data);
+          setResults(data || []);
+        } else {
+          setResults([]);
+        }
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 200);
+  }
+
+  /** User selected a result from the dropdown — fetch full details */
+  async function selectResult(r) {
+    setSelectedResult(r);
+    setQuery(r.code);
+    setShowDropdown(false);
+    setSearchError(null);
+    setFetchingDetails(true);
 
     try {
-      const res = await fetch(`/api/v1/ticker/${q}`);
+      const res = await fetch(`/api/v1/ticker/${r.code}`);
       if (res.ok) {
         const data = await res.json();
-        // Store the full ticker response including classification fields
-        setResults([{
+        console.log('[TickerSearch] ticker detail:', data);
+        // Merge full details into the selected result
+        setSelectedResult({
           ticker: data.ticker,
           name: data.name,
           price: data.price,
@@ -69,31 +106,24 @@ function TickerSearch({ onAdd, accounts }) {
           ocf_pct: data.ocf_pct,
           dividend_yield_pct: data.dividend_yield_pct,
           isin: data.isin,
-        }]);
-      } else {
-        setResults([]);
+          exchange: r.exchange,
+        });
+        // Pre-fill purchase price with current price (user can override)
+        if (data.price > 0) {
+          setPurchasePrice(String(data.price));
+        }
       }
+      // If detail fetch fails, still keep the search result as selected
     } catch {
-      setResults([]);
+      // best-effort
     } finally {
-      setLoading(false);
+      setFetchingDetails(false);
+      // Focus shares field
+      setTimeout(() => {
+        const sharesInput = document.querySelector('.shares-input');
+        sharesInput?.focus();
+      }, 100);
     }
-  }
-
-  /** User selected a result from the dropdown */
-  function selectResult(r) {
-    setSelectedResult(r);
-    setQuery(r.ticker);
-    setShowDropdown(false);
-    // Pre-fill purchase price with current price (user can override)
-    if (r.price > 0) {
-      setPurchasePrice(String(r.price));
-    }
-    // Focus shares field
-    setTimeout(() => {
-      const sharesInput = document.querySelector('.shares-input');
-      sharesInput?.focus();
-    }, 100);
   }
 
   /** Add the holding */
@@ -110,9 +140,9 @@ function TickerSearch({ onAdd, accounts }) {
     const pp = purchasePrice ? parseFloat(purchasePrice) : selectedResult.price;
     const aid = parseInt(selectedAccountId, 10);
     onAdd({
-      ticker: selectedResult.ticker,
+      ticker: selectedResult.ticker || selectedResult.code,
       name: selectedResult.name,
-      current_price: selectedResult.price,
+      current_price: selectedResult.price || 0,
       cost_basis_per_share: pp,
       quantity: parseFloat(shares),
       account_id: aid,
@@ -210,9 +240,9 @@ function TickerSearch({ onAdd, accounts }) {
         <button
           className="btn-add-ticker"
           onClick={handleAdd}
-          disabled={!selectedResult || !shares || parseFloat(shares) <= 0 || !selectedAccountId}
+          disabled={!selectedResult || !shares || parseFloat(shares) <= 0 || !selectedAccountId || fetchingDetails}
         >
-          +
+          {fetchingDetails ? '⋯' : '+'}
         </button>
       </div>
 
@@ -239,7 +269,7 @@ function TickerSearch({ onAdd, accounts }) {
 
           {!loading && results && results.length > 0 && results.map((r, i) => (
             <div
-              key={r.ticker}
+              key={`${r.code}-${r.exchange || i}`}
               className="dropdown-item"
               onClick={() => selectResult(r)}
             >
@@ -247,8 +277,8 @@ function TickerSearch({ onAdd, accounts }) {
               <div className="result-details">
                 <span className="result-name">{r.name}</span>
                 <span className="result-subtitle">
-                  {r.ticker} · {r.currency === 'GBP' ? 'LSE' : 'NYSE'}
-                  {r.ocf_pct ? ` · ${r.ocf_pct}% OCF` : ''}
+                  {r.code} · {r.exchange || 'N/A'}
+                  {r.match_score ? ` · ${Math.round(r.match_score * 100)}%` : ''}
                 </span>
               </div>
             </div>

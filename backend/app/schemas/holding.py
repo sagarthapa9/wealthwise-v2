@@ -102,3 +102,12 @@ class TickerResponse(BaseModel):
     ocf_pct: float | None = None
     dividend_yield_pct: float | None = None
     isin: str | None = None
+
+
+class TickerSearchResult(BaseModel):
+    """Lightweight search result from EODHD search endpoint."""
+    code: str
+    name: str
+    type: str | None = None
+    exchange: str | None = None
+    match_score: float | None = None

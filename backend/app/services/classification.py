@@ -8,14 +8,33 @@ values expected by the rest of the system.
 """
 
 # ── Type mapping ─────────────────────────────────────────────────────────
-# yfinance ``quoteType`` → spec ``type`` literal
+# Maps provider ``quoteType`` / ``General.Type`` → spec ``type`` literal
 TYPE_MAP: dict[str, str] = {
+    # yfinance
     "ETF": "ETF",
     "EQUITY": "stock",
     "MUTUALFUND": "fund",
     "BOND": "bond",
     "TRUST": "investment_trust",
     "UNIT": "fund",
+    # EODHD
+    "ETC": "ETF",
+    "ETN": "ETF",
+    "COMMON STOCK": "stock",
+    "ORDINARY SHARES": "stock",
+    "REIT": "stock",
+    "CLOSED END FUND": "fund",
+    "CLOSED-END FUND": "fund",
+    "MUTUAL FUND": "fund",
+    "OPEN END FUND": "fund",
+    "OPEN-END FUND": "fund",
+    "UNIT TRUST": "fund",
+    "FUND": "fund",
+    "INVESTMENT TRUST": "investment_trust",
+    "MONEY MARKET": "cash",
+    "GOVERNMENT BOND": "bond",
+    "CORPORATE BOND": "bond",
+    "CONVERTIBLE BOND": "bond",
 }
 
 # ── Asset class mapping ──────────────────────────────────────────────────
@@ -99,25 +118,133 @@ GEOGRAPHY_MAP: dict[str, str] = {
     "global": "global",
     "global_equity": "global",
     "world": "global",
+    # EODHD CountryISO codes
+    "gb": "uk",
+    "uk": "uk",
+    "us": "us",
+    "ie": "global",          # Ireland-domiciled (mostly global funds)
+    "je": "global",          # Jersey
+    "gg": "global",          # Guernsey
+    "lu": "europe",          # Luxembourg
+    "fr": "europe",
+    "de": "europe",
+    "nl": "europe",
+    "ch": "europe",
+    "se": "europe",
+    "dk": "europe",
+    "no": "europe",
+    "fi": "europe",
+    "it": "europe",
+    "es": "europe",
+    "jp": "asia_pacific",
+    "hk": "asia_pacific",
+    "au": "asia_pacific",
+    "sg": "asia_pacific",
+    "cn": "asia_pacific",
+    "in": "asia_pacific",
+    "kr": "asia_pacific",
+    "tw": "asia_pacific",
+    "br": "emerging_markets",
+    "za": "emerging_markets",
+    "ru": "emerging_markets",
+    "mx": "emerging_markets",
+    "id": "emerging_markets",
+    "my": "emerging_markets",
+    "th": "emerging_markets",
+    "tr": "emerging_markets",
 }
 
-# ── Sector mapping (informative — less standardised) ─────────────────────
-# yfinance ``sector`` → spec sector string (mostly pass-through)
-# This is less critical since sector is often a fund-level category.
+# ── Sector mapping ─────────────────────────────────────────────────────
+# Maps sector/industry strings from any provider to spec values.
+# Keys use lower_snake_case (provider fields are normalised before lookup).
 SECTOR_MAP: dict[str, str] = {
+    # Technology
     "technology": "technology",
+    "software": "technology",
+    "software_and_services": "technology",
+    "semiconductors": "technology",
+    "semiconductor": "technology",
+    "hardware": "technology",
+    "consumer_electronics": "technology",
+    "electronics": "technology",
+    "information_technology": "technology",
+    # Healthcare
     "healthcare": "healthcare",
+    "biotechnology": "healthcare",
+    "pharmaceuticals": "healthcare",
+    "medical_devices": "healthcare",
+    "medical_equipment": "healthcare",
+    "healthcare_providers": "healthcare",
+    "health_services": "healthcare",
+    # Financial
     "financial_services": "financial_services",
     "financial": "financial_services",
+    "asset_management": "financial_services",
+    "banks": "financial_services",
+    "banking": "financial_services",
+    "insurance": "financial_services",
+    "investment_banking": "financial_services",
+    "capital_markets": "financial_services",
+    "diversified_financial": "financial_services",
+    # Consumer
     "consumer_cyclical": "consumer_cyclical",
+    "consumer_services": "consumer_cyclical",
+    "retail": "consumer_cyclical",
+    "automotive": "consumer_cyclical",
+    "travel": "consumer_cyclical",
+    "luxury_goods": "consumer_cyclical",
     "consumer_defensive": "consumer_defensive",
+    "food_and_beverage": "consumer_defensive",
+    "food": "consumer_defensive",
+    "beverages": "consumer_defensive",
+    "consumer_staples": "consumer_defensive",
+    "household_products": "consumer_defensive",
+    "tobacco": "consumer_defensive",
+    # Industrials
     "industrials": "industrials",
+    "industrial": "industrials",
+    "manufacturing": "industrials",
+    "transportation": "industrials",
+    "aerospace_and_defense": "industrials",
+    "aerospace": "industrials",
+    "defense": "industrials",
+    "engineering": "industrials",
+    "machinery": "industrials",
+    "construction": "industrials",
+    # Energy
     "energy": "energy",
-    "basic_materials": "basic_materials",
+    "oil_and_gas": "energy",
+    "oil": "energy",
+    "renewable_energy": "energy",
     "utilities": "utilities",
+    "electric_utilities": "utilities",
+    # Materials
+    "basic_materials": "basic_materials",
+    "materials": "basic_materials",
+    "mining": "basic_materials",
+    "metals": "basic_materials",
+    "chemicals": "basic_materials",
+    # Real estate
     "real_estate": "real_estate",
+    "real_estate_investment": "real_estate",
+    "property": "real_estate",
+    # Communication
     "communication_services": "communication_services",
+    "telecommunications": "communication_services",
+    "telecom": "communication_services",
+    "media": "communication_services",
+    "entertainment": "communication_services",
+    # Diversified / catch-all
     "diversified": "global_diversified",
+    "exchange_traded_fund": "global_diversified",
+    "etf": "global_diversified",
+    "global_equities": "global_diversified",
+    "global_equity": "global_diversified",
+    # Commodities
+    "commodity": "commodities",
+    "commodities": "commodities",
+    "precious_metals": "commodities",
+    "precious_metals_gold": "commodities",
 }
 
 # ── Fallback defaults ────────────────────────────────────────────────────
