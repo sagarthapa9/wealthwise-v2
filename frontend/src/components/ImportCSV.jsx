@@ -173,8 +173,8 @@ function ImportCSV({ accounts, onComplete, onCancel }) {
 
   if (state === 'idle') {
     return (
-      <div className="csv-import-panel" onClick={() => fileInputRef.current?.click()}>
-        <div className="csv-dropzone">
+      <div className="csv-import-panel">
+        <div className="csv-dropzone" onClick={() => fileInputRef.current?.click()}>
           <span className="csv-dropzone-icon">📥</span>
           <p className="csv-dropzone-text">Click to upload a CSV file from your brokerage</p>
           <p className="csv-dropzone-hint">Supports most broker formats — columns are auto-detected</p>
@@ -189,6 +189,9 @@ function ImportCSV({ accounts, onComplete, onCancel }) {
             e.target.value = '';
           }}
         />
+        <div className="csv-actions" style={{ marginTop: '0.75rem' }}>
+          <button className="btn-csv-secondary" onClick={onCancel}>Cancel</button>
+        </div>
       </div>
     );
   }
@@ -199,6 +202,9 @@ function ImportCSV({ accounts, onComplete, onCancel }) {
         <div className="csv-loading">
           <span className="csv-spinner" />
           <p>Analysing CSV file...</p>
+        </div>
+        <div className="csv-actions" style={{ marginTop: '0.75rem' }}>
+          <button className="btn-csv-secondary" onClick={onCancel}>Cancel</button>
         </div>
       </div>
     );
