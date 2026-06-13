@@ -1,0 +1,7 @@
+Action,Time,ISIN,Ticker,Name,No. of shares,Price / share,Currency (Price/share),Exchange rate,Result (GBP),Total (GBP),Withholding tax,Currency (Withholding tax),Charge amount (GBP),Stamp duty reserve tax (GBP),Currency conversion fee (GBP),Notes,ID
+Market buy,2026-01-15 10:30:00,IE00B3RBWM25,VWRL,Vanguard FTSE All-World UCITS ETF,150,85.50,GBP,1.0,,12825.00,0.00,GBP,0.00,0.00,0.00,,T212-001
+Market buy,2026-02-01 09:15:00,IE00BFMXXD54,VUAG,Vanguard S&P 500 UCITS ETF USD Acc,80,65.20,GBP,1.0,,5216.00,0.00,GBP,0.00,0.00,0.00,,T212-002
+Market buy,2026-03-10 14:45:00,IE00BG47KH54,VMID,Vanguard FTSE 250 UCITS ETF,120,32.40,GBP,1.0,,3888.00,0.00,GBP,0.00,0.00,0.00,,T212-003
+Market buy,2026-04-22 11:00:00,IE00BZ163L38,VHYG,Vanguard FTSE All-World High Div Yield,100,52.80,GBP,1.0,,5280.00,0.00,GBP,0.00,0.00,0.00,,T212-004
+Limit sell,2026-05-30 15:20:00,IE00BG47KH54,VMID,Vanguard FTSE 250 UCITS ETF,50,36.80,GBP,1.0,220.00,1840.00,0.00,GBP,0.00,0.00,0.00,,T212-005
+Dividend (cash),2026-06-01 08:00:00,IE00B3RBWM25,VWRL,Vanguard FTSE All-World UCITS ETF,,,,USD,0.82,52.30,,3.50,GBP,0.00,,0.00,VWRL dividend,T212-006

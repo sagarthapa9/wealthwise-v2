@@ -1,0 +1,5 @@
+Date,Transaction,Description,Quantity,Price,Amount (GBP),Instrument code
+15/01/2026,Purchase,"Vanguard FTSE All-World UCITS ETF",150,85.50,12825.00,VWRL
+01/02/2026,Purchase,"Vanguard S&P 500 UCITS ETF (Acc)",80,65.20,5216.00,VUAG
+10/03/2026,Purchase,"Vanguard Global Aggregate Bond UCITS ETF",200,24.10,4820.00,VAGP
+22/04/2026,Sale,"iShares Core UK Gilts UCITS ETF",100,17.95,1795.00,IGLT

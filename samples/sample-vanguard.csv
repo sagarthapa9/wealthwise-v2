@@ -1,0 +1,5 @@
+Date,Type,Investment,Quantity,Price,Amount,Reference
+15/01/2026,Buy,"FTSE Global All Cap Index Fund Accumulation",50.25,425.00,21356.25,VG-001
+01/02/2026,Buy,"FTSE All-World High Dividend Yield UCITS ETF - Accumulating (VHYG)",135,62.24,8401.82,VG-002
+10/03/2026,Buy,"S&P 500 UCITS ETF - Distributing (VUSA)",126,76.98,9698.88,VG-003
+22/04/2026,Dividend,"LifeStrategy 60% Equity Fund - A GBP Acc",null,null,320.50,VG-004

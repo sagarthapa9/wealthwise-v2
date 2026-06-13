@@ -7,6 +7,7 @@ import AllocationSection from './components/AllocationSection';
 import SettingsModal from './components/SettingsModal';
 import ProfilePanel from './components/ProfilePanel';
 import ChatPanel from './components/ChatPanel';
+import ImportCSV from './components/ImportCSV';
 
 function App() {
   const [holdings, setHoldings] = useState([]);
@@ -15,6 +16,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState('GBP');
   const [showSettings, setShowSettings] = useState(false);
+  const [showImportCSV, setShowImportCSV] = useState(false);
   const [profileRefreshKey, setProfileRefreshKey] = useState(0);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [chatSessionId, setChatSessionId] = useState(null);
@@ -305,10 +307,22 @@ function App() {
         </div>
 
         {/* ── Import CSV ──────────────────────────── */}
-        <button className="btn-import-csv">
+        <button className="btn-import-csv" onClick={() => setShowImportCSV(true)}>
           <span className="btn-icon">📥</span>
           Import CSV File
         </button>
+
+        {showImportCSV && (
+          <ImportCSV
+            accounts={accounts}
+            onComplete={() => {
+              setShowImportCSV(false);
+              loadHoldings();
+              if (aiAnalysis) setAnalysisStale(true);
+            }}
+            onCancel={() => setShowImportCSV(false)}
+          />
+        )}
 
         {/* ── Portfolio Table ──────────────────────── */}
         <PortfolioTable

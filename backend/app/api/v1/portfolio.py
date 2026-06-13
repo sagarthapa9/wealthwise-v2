@@ -1,8 +1,11 @@
 """
-Portfolio CRUD endpoints — create, read, update, delete holdings + summary.
+Portfolio CRUD endpoints — create, read, update, delete holdings + summary + CSV import.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +17,17 @@ from app.schemas.holding import (
     HoldingUpdate,
     PortfolioSummary,
 )
+from app.schemas.import_ import (
+    ImportPreviewResponse,
+    ImportRequest,
+    ImportResponse,
+    ImportRowData,
+    ImportRowError,
+)
+from app.services.csv_parser import apply_enrichment, parse_csv, ParsedRow
+from app.services.ticker_provider import TickerNotFoundError, get_ticker_provider
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["portfolio"])
 
@@ -149,4 +163,151 @@ async def get_portfolio_summary(db: AsyncSession = Depends(get_db)):
         total_gain_loss=round(gain_loss, 2),
         total_gain_loss_pct=round(pct, 2),
         holding_count=len(holdings),
+    )
+
+
+# ── CSV Import ────────────────────────────────────────────────────────────
+
+
+def _parsed_to_import_row(parsed: ParsedRow) -> ImportRowData:
+    """Convert internal ParsedRow to API-facing ImportRowData."""
+    return ImportRowData(
+        row_number=parsed.row_number,
+        ticker=parsed.ticker,
+        name=parsed.name,
+        quantity=parsed.quantity,
+        cost_basis_per_share=parsed.cost_basis_per_share,
+        current_price=parsed.current_price,
+        currency=parsed.currency,
+        isin=parsed.isin,
+        valid=parsed.valid,
+        errors=parsed.errors,
+        enriched=parsed.enriched,
+        enrichment_error=parsed.enrichment_error,
+        type=parsed.type,
+        asset_class=parsed.asset_class,
+        sector=parsed.sector,
+        geography=parsed.geography,
+        ocf_pct=parsed.ocf_pct,
+        dividend_yield_pct=parsed.dividend_yield_pct,
+    )
+
+
+async def _enrich_rows(rows: list[ParsedRow]) -> list[ParsedRow]:
+    """Concurrently enrich parsed rows via the ticker provider (max 5 at a time)."""
+    provider = get_ticker_provider()
+    sem = asyncio.Semaphore(5)
+
+    async def enrich_one(row: ParsedRow) -> ParsedRow:
+        if not row.ticker or not row.valid:
+            return row
+        async with sem:
+            try:
+                data = await provider.lookup(row.ticker)
+                row = apply_enrichment(row, data)
+            except TickerNotFoundError:
+                row.enriched = False
+                row.enrichment_error = "Ticker not found"
+            except Exception:
+                row.enriched = False
+                row.enrichment_error = "Ticker lookup failed"
+        return row
+
+    return list(await asyncio.gather(*[enrich_one(r) for r in rows]))
+
+
+@router.post("/portfolio/import/preview", response_model=ImportPreviewResponse)
+async def import_preview(file: UploadFile):
+    """Parse a CSV file and return enriched rows for preview.  No DB writes.
+
+    Accepts multipart/form-data: ``file`` = the CSV file.
+    Returns mapped columns, row data, and enrichment status.
+    """
+    # ── Validate file ──────────────────────────────────────────────────
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:  # 5 MB
+        raise HTTPException(status_code=413, detail="CSV file too large (max 5 MB)")
+
+    # ── Parse ──────────────────────────────────────────────────────────
+    try:
+        rows, column_map, unmapped = parse_csv(content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV file has no data rows")
+
+    if len(rows) > 10_000:
+        raise HTTPException(status_code=413, detail="Too many rows (max 10 000 per import)")
+
+    # ── Enrich ─────────────────────────────────────────────────────────
+    rows = await _enrich_rows(rows)
+
+    valid = [r for r in rows if r.valid]
+    invalid = [r for r in rows if not r.valid]
+
+    return ImportPreviewResponse(
+        total_rows=len(rows),
+        valid_rows=len(valid),
+        invalid_rows=len(invalid),
+        rows=[_parsed_to_import_row(r) for r in rows],
+        mapped_columns=column_map,
+        unmapped_columns=unmapped,
+    )
+
+
+@router.post("/portfolio/import", response_model=ImportResponse, status_code=201)
+async def import_holdings(body: ImportRequest, db: AsyncSession = Depends(get_db)):
+    """Bulk-import holdings from the preview payload.  All rows are assigned to the
+    given account and inserted in a single transaction.
+    """
+    valid_rows = [r for r in body.rows if r.valid]
+    if not valid_rows:
+        raise HTTPException(status_code=400, detail="No valid rows to import")
+
+    errors: list[ImportRowError] = []
+    holdings: list[Holding] = []
+    enriched_count = 0
+
+    for row in valid_rows:
+        try:
+            holdings.append(Holding(
+                ticker=(row.ticker or "").upper(),
+                name=row.name or "",
+                quantity=row.quantity or 0,
+                cost_basis_per_share=row.cost_basis_per_share or 0,
+                current_price=row.current_price or 0,
+                account_id=body.account_id,
+                type=row.type,
+                asset_class=row.asset_class,
+                sector=row.sector,
+                geography=row.geography,
+                currency=row.currency,
+                ocf_pct=row.ocf_pct,
+                dividend_yield_pct=row.dividend_yield_pct,
+                isin=row.isin,
+            ))
+            if row.enriched:
+                enriched_count += 1
+        except Exception:
+            errors.append(ImportRowError(
+                row=row.row_number,
+                ticker=row.ticker,
+                reason="Failed to create holding",
+            ))
+
+    if not holdings:
+        raise HTTPException(status_code=400, detail="No rows could be converted to holdings")
+
+    db.add_all(holdings)
+    await db.commit()
+
+    return ImportResponse(
+        imported=len(holdings),
+        skipped=len(body.rows) - len(holdings),
+        enriched_count=enriched_count,
+        errors=errors,
     )
