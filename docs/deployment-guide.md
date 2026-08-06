@@ -9,6 +9,7 @@
 5. [Environment Variables](#5-environment-variables)
 6. [CI/CD Pipeline with GitHub Actions](#6-cicd-pipeline-with-github-actions)
 7. [Monitoring & Maintenance](#7-monitoring--maintenance)
+8. [Database Migration & Deployment Best Practices](#8-database-migration--deployment-best-practices)
 
 ---
 
@@ -90,6 +91,25 @@ gunicorn app.main:app \
 For a 2GB VPS, 4 workers is the sweet spot. You need to add `gunicorn` to
 `pyproject.toml` dependencies before deploying.
 
+### Database connection pooling
+
+asyncpg pools connections **per worker process**, so with 4 Gunicorn workers
+you get 4 independent pools. On small managed instances (e.g. Cloud SQL
+`db-f1-micro`, max 25 connections) that can exhaust the database. Size the
+pool explicitly in `backend/app/db/database.py`:
+
+```python
+engine = create_async_engine(
+    settings.database_url,
+    pool_size=5,          # per worker
+    max_overflow=2,
+    pool_pre_ping=True,   # validate the connection before use (survives DB restarts)
+)
+```
+
+`pool_pre_ping` matters in production — it re-validates stale sockets after a
+database restart instead of letting the first request crash.
+
 ---
 
 ## 3. Option A — Deploy on a VPS with Docker Compose
@@ -127,17 +147,25 @@ apt update && apt install -y caddy
 # Option A: Use a managed PostgreSQL service (recommended)
 #   1. Create a PostgreSQL instance on your cloud provider
 #   2. Note the connection string: postgresql+asyncpg://user:pass@host:5432/wealthwise
+#   3. Keep it on a private network / restricted IPs — never expose it publicly
 
-# Option B: Run PostgreSQL on the VPS (not recommended for production)
+# Option B: Run PostgreSQL on the VPS (fine for a personal app, you own backups)
+#   ⚠️ Bind to localhost (127.0.0.1), NOT 0.0.0.0, so it's unreachable from the internet
 docker run -d \
   --name wealthwise-db \
   -e POSTGRES_USER=wealthwise \
-  -e POSTGRES_PASSWORD=secure-password \
+  -e POSTGRES_PASSWORD='<a-real-long-random-password>' \
   -e POSTGRES_DB=wealthwise \
-  -v pgdata:/var/lib/postgresql/data \
-  -p 5432:5432 \
+  -v /var/lib/pgdata:/var/lib/postgresql/data \
+  -p 127.0.0.1:5432:5432 \
   postgres:17-alpine
 ```
+
+> ⚠️ **Security rules for the database — in every option:**
+> - Use a **strong random password**, never the dev default (`wealthwise/wealthwise`)
+> - The DB must be reachable **only by the API** (localhost bind on a VPS, private
+>   IP / authorized networks for managed services). Never open port 5432 to the internet.
+> - `DATABASE_URL` lives in `.env` / a secret manager — never in the code or committed.
 
 ### Step 4 — Clone the repo and configure
 
@@ -155,22 +183,32 @@ EOF
 
 ### Step 5 — Build and run with Docker Compose
 
+Migrations must run **before** the new API starts serving traffic — otherwise
+the app hits `relation "..." does not exist` errors until they complete.
+
 ```bash
-# Build the API image
-docker compose -f docker-compose.yml build api
+# 1. Start the database first (skip if using a managed service — it's external)
+docker compose up -d db
 
-# Run the API container
-docker compose -f docker-compose.yml up -d api
+# 2. Backup before any migration (self-hosted only — non-negotiable)
+docker exec wealthwise-db pg_dump -U wealthwise -d wealthwise > backup_$(date +%Y%m%d).sql
 
-# Build the frontend for production
+# 3. Apply migrations with the new image, WITHOUT exposing the API yet
+docker compose -f docker-compose.yml run --rm api uv run alembic upgrade head
+
+# 4. Only now build and start the API
+docker compose -f docker-compose.yml up -d --build api
+
+# 5. Build the frontend for production
 cd frontend
 npm ci
 npm run build
 cd ..
-
-# Run database migrations
-docker compose exec api uv run alembic upgrade head
 ```
+
+`docker compose run --rm api` runs a one-off migration container instead of
+exec'ing into the running server, so migrations are isolated and don't
+partially upgrade while the API is live.
 
 ### Step 6 — Configure Caddy as reverse proxy
 
@@ -309,6 +347,10 @@ gsutil cp -r dist/* gs://wealthwise-frontend/
 
 ### Step 7 — Run migrations
 
+Run the migration **job** and wait for it to succeed **before** deploying the
+new service revision. The job must be created with the *new* image (it carries
+the new migration files):
+
 ```bash
 gcloud run jobs create db-migrate \
   --image=europe-west2-docker.pkg.dev/wealthwise-prod/api/wealthwise-api \
@@ -316,6 +358,17 @@ gcloud run jobs create db-migrate \
   --add-cloudsql-instances=wealthwise-prod:europe-west2:wealthwise-db
 
 gcloud run jobs execute db-migrate
+```
+
+Then verify the job ran the expected revision before traffic switches over:
+
+```bash
+gcloud run jobs describe db-migrate --format="value(status.conditions)" 
+# Expected: Succeeded
+
+# Confirm the DB is at the latest revision
+gcloud sql connect wealthwise-db --user=wealthwise --quiet \
+  --command="SELECT version_num FROM alembic_version;"
 ```
 
 ---
@@ -379,6 +432,22 @@ jobs:
     name: Lint & Test
     runs-on: ubuntu-latest
 
+    # A throwaway Postgres lets us prove migrations work on a FRESH database
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wealthwise
+          POSTGRES_PASSWORD: wealthwise
+          POSTGRES_DB: wealthwise
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wealthwise"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -398,6 +467,18 @@ jobs:
       - name: Lint backend (ruff)
         working-directory: ./backend
         run: uv run ruff check . --output-format=github
+
+      # ⚠️ ALWAYS FAILING — a broken migration chain breaks every PR.
+      #    This is the test that catches duplicate/conflicting migrations
+      #    (e.g. two files adding the same column) which only surface on a
+      #    fresh database.
+      - name: Run migrations on a fresh database
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://wealthwise:wealthwise@localhost:5432/wealthwise
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check   # catches model ↔ migration drift
 
       - name: Run backend tests
         working-directory: ./backend
@@ -467,8 +548,9 @@ jobs:
             cd /app/wealthwise-v2
             git pull
             docker compose pull api
+            # Migrate BEFORE the new API starts — avoids 500s from missing tables
+            docker compose run --rm api uv run alembic upgrade head
             docker compose up -d --no-deps api
-            docker compose exec api uv run alembic upgrade head
 
       # ── Smoke test ──────────────────────────────────────
       - name: Smoke test
@@ -543,15 +625,55 @@ docker exec wealthwise-db pg_dump -U wealthwise wealthwise > backup_$(date +%Y%m
 gcloud sql backups list --instance=wealthwise-db
 ```
 
+**Scheduled backups (self-hosted only).** Managed databases do this for you;
+on a VPS set up a cron job:
+
+```bash
+# /etc/cron.d/wealthwise-backup
+0 2 * * *  docker exec wealthwise-db pg_dump -U wealthwise wealthwise | gzip > /var/backups/wealthwise_$(date +\%F).sql.gz
+```
+
+Keep ~30 days and **test a restore at least once**. A backup you've never
+restored is a guess. To test: create a throwaway container, load the dump,
+and confirm the tables + row counts match:
+
+```bash
+docker run -d --name restore-test \
+  -e POSTGRES_USER=wealthwise -e POSTGRES_PASSWORD=x -e POSTGRES_DB=wealthwise \
+  -v /var/backups:/backups postgres:17-alpine
+docker exec restore-test psql -U wealthwise -d wealthwise -f /backups/wealthwise_YYYY-MM-DD.sql.gz
+# confirm, then: docker rm -f restore-test
+```
+
+### Database monitoring
+
+Monitor these three things at minimum — they fail quietly and take the whole
+app down:
+
+```bash
+# 1. Disk space on the DB volume (Postgres dies when full)
+df -h /var/lib/pgdata        # self-hosted
+gcloud sql instances describe wealthwise-db --format="value(diskUsageGb)"  # Cloud SQL
+
+# 2. Connection count — the #1 sign your pool is mis-sized
+docker exec wealthwise-db psql -U wealthwise -d wealthwise -c "SELECT count(*) FROM pg_stat_activity;"
+
+# 3. Which revision production is on
+docker exec wealthwise-db psql -U wealthwise -d wealthwise -c "SELECT version_num FROM alembic_version;"
+```
+
 ### Updating the application
+
+Same ordering as first deploy — **migrate, then start the new API**:
 
 ```bash
 # Manual update on a VPS:
 ssh user@host
 cd /app/wealthwise-v2
 git pull
-docker compose up -d --build api
-docker compose exec api uv run alembic upgrade head
+docker compose pull api
+docker compose run --rm api uv run alembic upgrade head
+docker compose up -d --no-deps api
 ```
 
 ### Rollback
@@ -563,16 +685,113 @@ docker compose -f docker-compose.yml up -d api sagarthapa/wealthwise-api:previou
 
 ---
 
+## 8. Database Migration & Deployment Best Practices
+
+These rules come from real incidents on this project — including a duplicate
+migration (`c6d7e8f9a0b1`) that added the `archived` column a second time and
+broke every fresh database while dev machines stayed healthy.
+
+### Rule 1 — Migrate BEFORE the new code serves traffic
+
+The new app version queries columns that don't exist until the migration runs,
+so migrating first prevents a window of 500s. See §3 Step 5, §4 Step 7, §6
+deploy step, and §7 "Updating the application" — all follow this ordering.
+
+### Rule 2 — Prove the chain works on a FRESH database
+
+Alembic tracks state by revision ID, not by schema content. A migration that
+"passes" on your dev DB (because it was already applied there) can still break
+on a fresh one. Before every deploy, run the chain from zero:
+
+```bash
+# Local: wipe + re-migrate — the exact test that catches duplicate columns
+docker compose down -v && docker compose up -d db
+docker compose exec api uv run alembic upgrade head
+```
+
+In CI this runs automatically on every PR (see §6 "Run migrations on a fresh
+database").
+
+### Rule 3 — Never edit an already-applied migration
+
+Once a migration has been committed and run anywhere, it is frozen. Editing it
+only changes behaviour on *fresh* databases — dev machines that already ran it
+will silently diverge from everyone else. For any follow-up change, write a
+**new** migration:
+
+```bash
+cd backend
+uv run alembic revision --autogenerate -m "describe the change"
+# review the generated file, then upgrade
+uv run alembic upgrade head
+```
+
+### Rule 4 — Two migrations must never touch the same column
+
+Before generating a migration, check what the chain already does:
+
+```bash
+uv run alembic history          # the full chain
+uv run alembic current          # where this DB is
+```
+
+If a column already exists, extend the latest migration's `upgrade()` instead
+of adding a duplicate `add_column` for it.
+
+### Rule 5 — Back up before you migrate
+
+```bash
+docker exec wealthwise-db pg_dump -U wealthwise -d wealthwise > backup_$(date +%Y%m%d).sql
+```
+
+Especially for destructive migrations (`drop_column`, `drop_table`).
+
+### Rule 6 — Have a rollback plan
+
+```bash
+# Downgrade one step (needs the OLD image still present, and the migration
+# must implement downgrade()):
+docker compose run --rm api uv run alembic downgrade -1
+
+# Preferred: restore the pre-migration backup from §7
+```
+
+Never rely on `downgrade()` for a release you don't control — a restore from
+backup is the dependable fallback.
+
+### Rule 7 — Check for drift between models and migrations
+
+```bash
+uv run alembic check
+```
+
+Fails if the SQLAlchemy models and the migration chain disagree — catches the
+case where a column was added to a model but no migration was written.
+
+### Sanity checklist before any production migration
+
+```bash
+1.  uv run alembic history        # understand the chain
+2.  docker compose down -v && up  # prove it works on a fresh DB
+3.  uv run alembic check          # model ↔ migration drift
+4.  pg_dump backup                # safety net
+5.  migrate → verify → deploy     # correct ordering (Rule 1)
+6.  alembic current on prod       # confirm the revision
+```
+
+---
+
 ## Quick Reference — Commands Cheat Sheet
 
 ```bash
 # ── Local ─────────────────────────────────────────────────
 docker compose up --build           # Start everything
 docker compose exec api uv run alembic upgrade head  # Run migrations
+docker compose down -v && docker compose up -d db && docker compose exec api uv run alembic upgrade head  # Fresh-DB migration test
 
 # ── VPS Deploy ────────────────────────────────────────────
 scp .env root@host:/app/wealthwise-v2/.env
-ssh root@host "cd /app/wealthwise-v2 && docker compose up -d --build"
+ssh root@host "cd /app/wealthwise-v2 && docker compose up -d db && docker compose run --rm api uv run alembic upgrade head && docker compose up -d --build"
 
 # ── CI/CD ─────────────────────────────────────────────────
 git add -A && git commit -m "message" && git push
