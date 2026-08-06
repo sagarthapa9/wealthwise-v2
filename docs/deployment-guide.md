@@ -94,21 +94,62 @@ For a 2GB VPS, 4 workers is the sweet spot. You need to add `gunicorn` to
 ### Database connection pooling
 
 asyncpg pools connections **per worker process**, so with 4 Gunicorn workers
-you get 4 independent pools. On small managed instances (e.g. Cloud SQL
-`db-f1-micro`, max 25 connections) that can exhaust the database. Size the
-pool explicitly in `backend/app/db/database.py`:
+you get 4 independent pools. Size the pool explicitly in
+`backend/app/db/database.py`:
 
 ```python
 engine = create_async_engine(
     settings.database_url,
-    pool_size=5,          # per worker
-    max_overflow=2,
-    pool_pre_ping=True,   # validate the connection before use (survives DB restarts)
+    pool_size=5,          # baseline connections kept open per worker
+    max_overflow=2,       # extra connections allowed during bursts
+    pool_pre_ping=True,   # ping before use — survives DB restarts
 )
 ```
 
-`pool_pre_ping` matters in production — it re-validates stale sockets after a
-database restart instead of letting the first request crash.
+**What each setting does and why it matters:**
+
+| Setting | What it does | Why it matters |
+|---------|--------------|----------------|
+| `pool_size=5` | Keeps 5 connections open and reuses them | Opening a connection is expensive — reuse avoids that overhead on every request |
+| `max_overflow=2` | Allows up to 2 extra connections during a burst, then releases them | Without it, the 6th concurrent request queues and slows down. **The cap is critical:** on a small managed DB (`db-f1-micro` = 25 max connections), uncapped overflow can exhaust the DB and throw `too many connections` — taking down every app sharing that database |
+| `pool_pre_ping=True` | Runs a `SELECT 1` on a connection before handing it to a request | Connections **silently die** when the database restarts (VPS reboot, `docker compose restart db`, Cloud SQL maintenance/failover). Without the ping, the next request grabs a dead socket and fails mid-request; with it, stale connections are discarded and replaced |
+
+Database restarts are routine in production, so `pool_pre_ping` prevents a
+burst of mysterious connection errors each time one happens.
+
+### CORS — cross-origin requests
+
+Browsers block `fetch()` calls from a page to a **different origin** unless
+the target server explicitly allows it via CORS headers. Whether you need it
+depends entirely on how frontend and API are served:
+
+| Deployment | Same origin? | CORS needed? |
+|---|---|---|
+| Local dev (Vite proxy `/api` → backend) | ✅ Yes — the proxy makes it same-origin | ❌ No |
+| VPS + Caddy (static files **and** `/api/*` proxied on one domain) | ✅ Yes | ❌ No |
+| Cloud Run + Cloud Storage (frontend and API on different URLs) | ❌ No | ✅ **Yes — mandatory** |
+
+To enable it, add a `CORS_ORIGINS` setting (already in the `.env.prod`
+template) and wire `CORSMiddleware` in `main.py`:
+
+```python
+# backend/app/core/config.py
+cors_origins: str = ""   # comma-separated allowed origins, e.g. "https://wealthwise.example.com"
+
+# backend/app/main.py
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+For the VPS + Caddy path this is optional. For Cloud Run it is **required** —
+without it the browser silently blocks every API call, and you'll see CORS
+errors in the console instead of responses.
 
 ---
 
