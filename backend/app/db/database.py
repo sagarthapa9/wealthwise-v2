@@ -18,6 +18,8 @@ engine = create_async_engine(
     settings.database_url,
     echo=False,          # Set True to see SQL queries in logs
     pool_size=5,
+    max_overflow=2,      # allow temporary extra connections during bursts
+    pool_pre_ping=True,  # validate connections before use (survives DB restarts)
 )
 
 # Session factory — call this to get a fresh DB session

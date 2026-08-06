@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # Ticker data provider
     eodhd_api_key: str = ""
 
+    # CORS — comma-separated allowed origins (empty = deny cross-origin)
+    cors_origins: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
