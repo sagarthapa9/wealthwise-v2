@@ -730,7 +730,9 @@ docker compose -f docker-compose.yml up -d api sagarthapa/wealthwise-api:previou
 
 These rules come from real incidents on this project — including a duplicate
 migration (`c6d7e8f9a0b1`) that added the `archived` column a second time and
-broke every fresh database while dev machines stayed healthy.
+broke every fresh database while dev machines stayed healthy, and an
+`alembic upgrade head` failure caused by a hardcoded DB password going stale
+while the app itself kept connecting fine.
 
 ### Rule 1 — Migrate BEFORE the new code serves traffic
 
@@ -808,6 +810,53 @@ uv run alembic check
 
 Fails if the SQLAlchemy models and the migration chain disagree — catches the
 case where a column was added to a model but no migration was written.
+
+### Rule 8 — `POSTGRES_PASSWORD` only applies when the volume is first created
+
+The postgres image reads `POSTGRES_PASSWORD` **only during first-time volume
+initialisation**. Rotating it in `.env` on a running system does nothing — the
+database keeps its old password, and the next `docker compose up --build` bakes
+the new (wrong) password into the API's `DATABASE_URL`, breaking the connection
+even though the health check was green moments before.
+
+To rotate the password on an existing volume, sync the database to `.env`
+(the image trusts the local socket, so no old password is needed):
+
+```bash
+# 1. Put a new URL-safe password in .env first (see Rule 9)
+# 2. Apply it to the running database
+docker compose exec db psql -U wealthwise -d wealthwise -c "ALTER USER wealthwise WITH PASSWORD '<new-url-safe-password>';"
+# 3. Recreate the API so its DATABASE_URL uses the new password
+docker compose up -d --build api
+```
+
+On a fresh VPS volume this is automatic (the password is set at init). The trap
+is local rotation, or deploying with a `.env` that doesn't match the password
+the volume was created with.
+
+> **Why alembic failed while the app worked:** alembic reads its connection
+> string from the app's `DATABASE_URL` (injected in `backend/alembic/env.py`),
+> **not** from a value hardcoded in `alembic.ini`. The old `alembic.ini`
+> hardcoded the original `wealthwise` password, so after the DB password
+> rotated, `alembic upgrade head` died with `password authentication failed`
+> while the app — which reads `DATABASE_URL` — stayed healthy.
+
+### Rule 9 — Keep the DB password URL-safe
+
+`docker-compose.yml` builds the API connection string by interpolating
+`POSTGRES_PASSWORD` **raw** into the URL:
+
+```yaml
+DATABASE_URL=postgresql+asyncpg://wealthwise:${POSTGRES_PASSWORD}@db:5432/wealthwise
+```
+
+Compose does not URL-encode it. A reserved character (`@`, `:`, `/`, `#`, `?`,
+`%`, space) either makes asyncpg misparse the URL (shifting parts into the host
+or port) or, for `#`, silently truncates the URL as a comment — the app then
+fails to connect even though the password is correct.
+
+Use only unreserved characters: `A-Za-z0-9-._~` — e.g. a 24-char password
+generated from that alphabet (`tr -dc 'A-Za-z0-9-._~' < /dev/urandom | head -c 24`).
 
 ### Sanity checklist before any production migration
 

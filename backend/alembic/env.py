@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
+from app.core.config import settings
+
 # Import our model metadata so alembic can autogenerate migrations
 from app.db.database import Base
 from app.models import Holding  # noqa: F401 — registers model with Base
@@ -19,6 +21,12 @@ from app.models import ChatSession, ChatMessage, UserMemory  # noqa: F401
 
 # Alembic Config — reads alembic.ini
 config = context.config
+
+# Use the app's real connection string (DATABASE_URL env / .env) instead of
+# the value hardcoded in alembic.ini. That hardcoded URL goes stale when the
+# DB password rotates — it caused "password authentication failed for user
+# wealthwise" on `alembic upgrade head` while the app itself kept working.
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # Set up Python logging
 if config.config_file_name is not None:
