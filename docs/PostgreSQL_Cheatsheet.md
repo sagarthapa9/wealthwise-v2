@@ -22,7 +22,7 @@ psql -h localhost -p 5432 -U wealthwise -d wealthwise
 # Step 1 — find container name
 docker ps
 
-# Step 2 — enter container
+# Step 2 — enter container (use the name/ID from step 1, not a hardcoded one — they change on every recreate)
 docker exec -it <container_name> bash
 
 # Step 3 — connect
