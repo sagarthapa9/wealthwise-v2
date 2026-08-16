@@ -1,0 +1,105 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:            # manual "Run workflow" button
+
+jobs:
+  # ── CI: prove the code is deployable, before it touches the VPS ──
+  test:
+    name: Verify
+    runs-on: ubuntu-latest
+
+    services:                   # throwaway Postgres — proves migrations apply on a FRESH DB
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wealthwise
+          POSTGRES_PASSWORD: wealthwise
+          POSTGRES_DB: wealthwise
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wealthwise"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Backend ──
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.x"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: uv sync --frozen
+
+      # A broken/duplicate migration chain only surfaces on a fresh database —
+      # both the VPS and a dev DB have history, so they only ever apply new
+      # migrations in sequence and never exercise the full chain from scratch.
+      - name: Run migrations on a fresh database
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://wealthwise:wealthwise@localhost:5432/wealthwise
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check      # fails if models & migrations have drifted
+
+      # ── Frontend ──
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+  # ── CD: deploy backend + frontend together on the VPS ──
+  deploy:
+    name: Deploy to Production
+    needs: test
+    if: github.ref == 'refs/heads/main'    # never deploys on a PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /app/wealthwise-v2
+            git pull
+            # ── Frontend: regenerate the static dist/ that Caddy serves ──
+            cd frontend && npm ci && npm run build
+            cd ..
+            # ── Backend: build new image from the freshly-pulled source ──
+            docker compose build api
+            # Migrate BEFORE the new API serves traffic — avoids 500s from missing tables
+            docker compose run --rm api uv run alembic upgrade head
+            docker compose up -d --no-deps api
+
+      - name: Smoke test
+        run: |
+          sleep 10
+          curl -fsS https://wealthwise.diy/api/v1/health
