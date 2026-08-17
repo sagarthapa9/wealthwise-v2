@@ -255,7 +255,7 @@ function App() {
       <div className="portfolio-card">
         {/* ── Header ─────────────────────────────── */}
         <div className="portfolio-header">
-          <h2>Portfolio</h2>
+          <h2>Create Portfolio</h2>
           <button
             className="btn-settings"
             onClick={() => setShowSettings(true)}
