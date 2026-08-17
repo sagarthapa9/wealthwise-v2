@@ -89,6 +89,13 @@ jobs:
           chmod 600 /tmp/debug_key
           ssh-keygen -lf /tmp/debug_key
 
+      # TEMP debug: show who/where the SSH step is connecting to. Values print
+      # as *** (GitHub masks secrets) but an empty secret shows as blank.
+      - name: Debug - show connection target
+        run: |
+          echo "Host: ${{ secrets.SSH_HOST }}"
+          echo "User: ${{ secrets.SSH_USER }}"
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
