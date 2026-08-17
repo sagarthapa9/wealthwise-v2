@@ -89,12 +89,17 @@ jobs:
           chmod 600 /tmp/debug_key
           ssh-keygen -lf /tmp/debug_key
 
-      # TEMP debug: show who/where the SSH step is connecting to. Values print
-      # as *** (GitHub masks secrets) but an empty secret shows as blank.
-      - name: Debug - show connection target
+      # TEMP debug: inspect secrets without printing them — an empty secret or a
+      # stray trailing newline/space in SSH_USER is a common SSH-auth killer.
+      - name: Debug - check secret properties safely
         run: |
-          echo "Host: ${{ secrets.SSH_HOST }}"
-          echo "User: ${{ secrets.SSH_USER }}"
+          echo "Host length: ${#SSH_HOST_VAL}"
+          echo "User length: ${#SSH_USER_VAL}"
+          echo "User first char: ${SSH_USER_VAL:0:1}"
+          echo "User last char: ${SSH_USER_VAL: -1}"
+        env:
+          SSH_HOST_VAL: ${{ secrets.SSH_HOST }}
+          SSH_USER_VAL: ${{ secrets.SSH_USER }}
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
