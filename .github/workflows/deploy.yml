@@ -80,27 +80,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      # TEMP debug: print the fingerprint of the key GitHub holds, so we can
-      # compare it against the public key installed on the VPS.
-      - name: Debug - fingerprint the secret's key
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/debug_key
-          chmod 600 /tmp/debug_key
-          ssh-keygen -lf /tmp/debug_key
-
-      # TEMP debug: inspect secrets without printing them — an empty secret or a
-      # stray trailing newline/space in SSH_USER is a common SSH-auth killer.
-      - name: Debug - check secret properties safely
-        run: |
-          echo "Host length: ${#SSH_HOST_VAL}"
-          echo "User length: ${#SSH_USER_VAL}"
-          echo "User first char: ${SSH_USER_VAL:0:1}"
-          echo "User last char: ${SSH_USER_VAL: -1}"
-        env:
-          SSH_HOST_VAL: ${{ secrets.SSH_HOST }}
-          SSH_USER_VAL: ${{ secrets.SSH_USER }}
-
+      
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
